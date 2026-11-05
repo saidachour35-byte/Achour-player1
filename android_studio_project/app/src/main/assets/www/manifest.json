@@ -1,0 +1,31 @@
+{
+  "name": "Achour Player",
+  "short_name": "Achour IPTV",
+  "description": "High Performance IPTV Player for Phone, Android TV, and Fire TV Stick",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "categories": ["entertainment", "video"],
+  "icons": [
+    {
+      "src": "/assets/aistudio/AchourTV_512x512_46ec9327.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/banner-tv.png",
+      "sizes": "320x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

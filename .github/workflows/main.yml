@@ -1,0 +1,52 @@
+name: Android Build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build React App
+        run: |
+          npm install
+          npm run build
+          mkdir -p android_studio_project/app/src/main/assets/www
+          cp -r dist/* android_studio_project/app/src/main/assets/www/
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android_studio_project/gradlew
+        continue-on-error: true
+
+      - name: Build Android APK
+        run: |
+          cd android_studio_project
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: achour-player-debug
+          path: android_studio_project/app/build/outputs/apk/debug/*.apk

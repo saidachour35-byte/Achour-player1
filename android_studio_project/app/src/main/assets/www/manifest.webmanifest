@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Achour Player",
+  "short_name": "AchourPro",
+  "description": "A premium IPTV player with Royal Pro aesthetics and AI-powered channel discovery.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#080808",
+  "theme_color": "#D4AF37",
+  "icons": [
+    {
+      "src": "/assets/aistudio/AchourTV_512x512_46ec9327.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}

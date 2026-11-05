@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@theme {
+  --color-gold: #D4AF37;
+  --color-gold-dark: #B8860B;
+  --color-obsidian: #080808;
+}
+
+@keyframes rain-move {
+  from { background-position: 0 0; }
+  to { background-position: 0 100%; }
+}
+
+@layer base {
+  html {
+    font-size: clamp(12px, 1.1vw, 17px);
+  }
+
+  body {
+    @apply bg-obsidian text-white overflow-x-hidden m-0 min-h-screen;
+    -webkit-tap-highlight-color: transparent;
+    font-size: 1rem; 
+  }
+
+  /* Completely hide all vertical & horizontal scrollbars app-wide while keeping scrolling 100% functional */
+  *, *::before, *::after {
+    -ms-overflow-style: none !important; /* IE & Edge */
+    scrollbar-width: none !important; /* Firefox */
+  }
+
+  ::-webkit-scrollbar {
+    display: none !important;
+    width: 0px !important;
+    height: 0px !important;
+    background: transparent !important;
+  }
+
+  /* TV Safe-Area padding for 10-foot UI */
+  .tv-safe-area {
+    padding-left: max(1.5rem, 3.5vw);
+    padding-right: max(1.5rem, 3.5vw);
+    padding-top: max(1rem, 2.5vh);
+    padding-bottom: max(1rem, 2.5vh);
+  }
+}
+
+@layer utilities {
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-md border border-white/10;
+  }
+  
+  .gold-gradient {
+    background: linear-gradient(135deg, var(--theme-primary, #e5a00d), var(--theme-secondary, #b8860b));
+  }
+
+  .text-shadow-gold {
+    text-shadow: 0 0 10px var(--theme-glow, rgba(229, 160, 13, 0.5));
+  }
+
+  /* Single, crisp, razor-sharp TV focus ring bound dynamically to active theme color */
+  :focus-visible,
+  :focus,
+  [data-tv-focused="true"],
+  [data-tv-focusable="true"]:focus,
+  [data-tv-focusable="true"]:focus-visible,
+  button:focus,
+  button:focus-visible, 
+  [role="button"]:focus,
+  [role="button"]:focus-visible, 
+  a:focus,
+  a:focus-visible, 
+  input:focus,
+  input:focus-visible, 
+  select:focus,
+  select:focus-visible,
+  textarea:focus,
+  textarea:focus-visible,
+  [tabindex="0"]:focus,
+  [tabindex="0"]:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 3.5px var(--theme-primary, #e5a00d), 0 0 25px var(--theme-glow, rgba(229, 160, 13, 0.55)) !important;
+    border-color: var(--theme-primary, #e5a00d) !important;
+    transform: scale(1.025);
+    z-index: 50 !important;
+    transition: transform 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
+  }
+}
+
+@keyframes bokeh {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+  33% { transform: translate(2%, 4%) scale(1.1); opacity: 0.5; }
+  66% { transform: translate(-1%, -3%) scale(0.9); opacity: 0.2; }
+}
+
+.animate-bokeh {
+  animation: bokeh 10s infinite ease-in-out;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Custom Video Player Clean Aesthetic - Transparent for Hardware Video Decoding Surface */
+video {
+  background-color: transparent !important;
+  background: transparent !important;
+  object-fit: contain;
+}
+
+video::-webkit-media-controls-start-playback-button,
+video::-webkit-media-controls-play-button,
+video::-webkit-media-controls-panel-background,
+video::-webkit-media-controls-panel {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+}
+
+/* Video.js Overrides */
+.video-js {
+  background-color: #000000 !important;
+  background: #000000 !important;
+  font-family: inherit !important;
+}
+
+.video-js .vjs-tech {
+  background-color: #000000 !important;
+  background: #000000 !important;
+}
+
+.video-js .vjs-poster {
+  background-color: #000000 !important;
+  background-size: contain !important;
+}
+
+.video-js .vjs-big-play-button {
+  display: none !important;
+}
+
+.video-js .vjs-tech {
+  background-color: #000000 !important;
+}
+
+/* Ensure no grey background on any video element */
+video, .video-js, .vjs-poster, .vjs-loading-spinner {
+  background-color: #000000 !important;
+  background-image: none !important;
+}
