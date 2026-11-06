@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { VodItem, SeriesEpisode } from '../types';
 import { pushBackHandler } from '../utils/tvNavigation';
+import { getPlayerPackage } from '../utils/players';
 
 export interface VodPlayerModalProps {
   item?: VodItem;
@@ -156,6 +157,46 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
   const displayTitle = isSeries
     ? `${activeVod.title || activeVod.name || 'مسلسل'} - S${currentEpisode?.season_num || 1} E${currentEpisode?.episode_num || currentEpisodeIndex + 1}: ${currentEpisode?.title || currentEpisode?.name || ''}`
     : activeVod.title || activeVod.name || 'عرض فيديو';
+
+  // External Player Logic
+  const launchExternalPlayer = useCallback((url: string) => {
+    const player = settings?.selectedPlayer || '';
+    const packageName = getPlayerPackage(player);
+    const isM3u8 = url.includes('.m3u8');
+    const mimeType = isM3u8 ? 'application/x-mpegURL' : 'video/*';
+
+    const native = (window as any).AchourNative || (window as any).Android || (window as any).FireTVBridge;
+    if (native && typeof native.playMedia === 'function') {
+      try {
+        native.playMedia(url, JSON.stringify({
+          title: displayTitle,
+          logo: activeVod.stream_icon || activeVod.logo || '',
+          stream_id: vodId,
+          type: mediaType,
+          player: player,
+          packageName: packageName || undefined,
+          mimeType: mimeType,
+          action: 'play'
+        }));
+        onClose();
+      } catch (err) {
+        console.error('External player launch failed:', err);
+      }
+    } else {
+      // Fallback intent
+      if (packageName) {
+        const intentUrl = `intent:${url}#Intent;package=${packageName};type=${mimeType};end`;
+        window.location.href = intentUrl;
+        onClose();
+      }
+    }
+  }, [settings, displayTitle, activeVod, vodId, mediaType, onClose]);
+
+  useEffect(() => {
+    if (settings?.useExternalPlayer && activeStreamUrl) {
+      launchExternalPlayer(activeStreamUrl);
+    }
+  }, [settings?.useExternalPlayer, activeStreamUrl, launchExternalPlayer]);
 
   // 1. Initialize Player & Load Stream
   useEffect(() => {
@@ -540,7 +581,15 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
 
       resetControlsTimeout();
 
-      if (e.key === 'Escape' || e.key === 'Back' || e.keyCode === 10009 || e.keyCode === 461) {
+      if (
+        e.key === 'Escape' || 
+        e.key === 'Back' || 
+        e.key === 'GoBack' || 
+        e.keyCode === 4 || 
+        e.keyCode === 27 || 
+        e.keyCode === 10009 || 
+        e.keyCode === 461
+      ) {
         e.preventDefault();
         e.stopPropagation();
 
@@ -572,9 +621,37 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
       }
 
       const key = e.key;
+      const keyCode = e.keyCode;
+
+      // Handle Media Keys (Fire TV / Android TV standard)
+      if (key === 'MediaPlayPause' || keyCode === 179) {
+        e.preventDefault();
+        togglePlayPause();
+        return;
+      }
+      if (key === 'MediaPlay' || keyCode === 126) {
+        e.preventDefault();
+        if (!isPlaying) togglePlayPause();
+        return;
+      }
+      if (key === 'MediaPause' || keyCode === 127) {
+        e.preventDefault();
+        if (isPlaying) togglePlayPause();
+        return;
+      }
+      if (key === 'MediaFastForward' || keyCode === 228) {
+        e.preventDefault();
+        handleSkipTime(10);
+        return;
+      }
+      if (key === 'MediaRewind' || keyCode === 227) {
+        e.preventDefault();
+        handleSkipTime(-10);
+        return;
+      }
 
       if (!showControls) {
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' '].includes(key)) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' ', 'Select', 'Ok'].includes(key) || [23, 13, 19, 20, 21, 22].includes(keyCode)) {
           setShowControls(true);
           return;
         }
@@ -590,15 +667,15 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
           if (focusableItems.length > 0) {
             const activeIdx = focusableItems.findIndex((el) => el === document.activeElement);
 
-            if (key === 'ArrowDown') {
+            if (key === 'ArrowDown' || keyCode === 20) {
               e.preventDefault();
               const nextIdx = activeIdx < focusableItems.length - 1 ? activeIdx + 1 : 0;
               focusableItems[nextIdx].focus();
-            } else if (key === 'ArrowUp') {
+            } else if (key === 'ArrowUp' || keyCode === 19) {
               e.preventDefault();
               const prevIdx = activeIdx > 0 ? activeIdx - 1 : focusableItems.length - 1;
               focusableItems[prevIdx].focus();
-            } else if (key === 'Enter' || key === ' ') {
+            } else if (key === 'Enter' || key === ' ' || key === 'Select' || keyCode === 23 || keyCode === 13) {
               if (document.activeElement instanceof HTMLElement) {
                 document.activeElement.click();
               }
@@ -618,25 +695,27 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
       let currentIndex = controlButtons.indexOf(currentActive);
       if (currentIndex === -1) currentIndex = 0;
 
-      if (key === 'ArrowRight') {
-        if (currentActive.classList.contains('vod-seekbar-input')) {
-          e.preventDefault();
-          handleSkipTime(-10);
-        } else {
-          e.preventDefault();
-          const nextIdx = (currentIndex + 1) % controlButtons.length;
-          controlButtons[nextIdx].focus();
-        }
-      } else if (key === 'ArrowLeft') {
+      // SEEK BAR LOGIC: Standardize physical direction
+      // Right Arrow -> Forward, Left Arrow -> Backward
+      if (key === 'ArrowRight' || keyCode === 22) {
         if (currentActive.classList.contains('vod-seekbar-input')) {
           e.preventDefault();
           handleSkipTime(10);
         } else {
           e.preventDefault();
+          const nextIdx = (currentIndex + 1) % controlButtons.length;
+          controlButtons[nextIdx].focus();
+        }
+      } else if (key === 'ArrowLeft' || keyCode === 21) {
+        if (currentActive.classList.contains('vod-seekbar-input')) {
+          e.preventDefault();
+          handleSkipTime(-10);
+        } else {
+          e.preventDefault();
           const prevIdx = (currentIndex - 1 + controlButtons.length) % controlButtons.length;
           controlButtons[prevIdx].focus();
         }
-      } else if (key === 'ArrowUp') {
+      } else if (key === 'ArrowUp' || keyCode === 19) {
         e.preventDefault();
         if (currentActive.classList.contains('vod-bottom-btn')) {
           const seekbar = containerRef.current?.querySelector<HTMLElement>('.vod-seekbar-input');
@@ -648,7 +727,7 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
           const topBackBtn = containerRef.current?.querySelector<HTMLElement>('.vod-top-back-btn');
           if (topBackBtn) topBackBtn.focus();
         }
-      } else if (key === 'ArrowDown') {
+      } else if (key === 'ArrowDown' || keyCode === 20) {
         e.preventDefault();
         if (currentActive.classList.contains('vod-top-back-btn')) {
           const centerPlayBtn = containerRef.current?.querySelector<HTMLElement>('.vod-center-play-btn');
@@ -660,7 +739,7 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
           const playPauseBtn = containerRef.current?.querySelector<HTMLElement>('.vod-bottom-play-btn');
           if (playPauseBtn) playPauseBtn.focus();
         }
-      } else if (key === 'Enter' || key === ' ') {
+      } else if (key === 'Enter' || key === ' ' || key === 'Select' || keyCode === 23 || keyCode === 13) {
         if (currentActive && currentActive.click) {
           currentActive.click();
         } else {
@@ -729,9 +808,14 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
       <div className="relative w-full h-full flex items-center justify-center bg-black">
         <video
           ref={videoRef}
-          className={`transition-all duration-300 ${getAspectRatioClass()}`}
+          className={`transition-all duration-700 bg-black opacity-0 ${getAspectRatioClass()}`}
           playsInline
           autoPlay
+          onPlay={(e) => {
+            const video = e.currentTarget;
+            video.classList.remove('opacity-0');
+            video.classList.add('opacity-100');
+          }}
           onClick={togglePlayPause}
         />
 
@@ -1090,10 +1174,10 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
                   onClick={(e) => openPopup('episodes', e.currentTarget)}
                   data-tv-focusable="true"
                   tabIndex={0}
-                  className={`vod-bottom-btn p-2.5 rounded-xl border transition-colors flex items-center gap-1.5 text-xs font-semibold focus:ring-2 focus:ring-gold ${
+                  className={`vod-bottom-btn p-3 rounded-xl border transition-all flex items-center gap-2 text-xs font-semibold focus:ring-4 focus:ring-amber-300 focus:bg-amber-500 focus:text-black focus:scale-110 shadow-xl cursor-pointer outline-none ${
                     activePopup === 'episodes'
                       ? 'bg-gold/20 border-gold text-gold'
-                      : 'bg-gray-900/80 border-gray-700/60 text-gray-300 hover:bg-gray-800'
+                      : 'bg-gray-900/90 border-gray-700/60 text-gray-200 hover:bg-gray-800'
                   }`}
                   title="قائمة الحلقات"
                 >

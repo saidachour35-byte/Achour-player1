@@ -12,7 +12,13 @@ export const PLAYER_PACKAGES: Record<string, string> = {
   'IJK Player': 'tv.danmaku.ijk.media.example',
   'PotPlayer': 'com.potplayer.video.player',
   'KMPlayer': 'com.kmplayer',
-  'ExoPlayer': 'com.google.android.exoplayer2'
+  'ExoPlayer': 'com.google.android.exoplayer2',
+  'nPlayer': 'com.newin.nplayer.pro',
+  'Wiseplay': 'com.itwise.wiseplay',
+  'BubbleUPnP': 'com.bubblesoft.android.bubbleupnp',
+  'Wuffy Player': 'com.cocsoft.wuffyplayer',
+  'Perfect Player': 'com.niklabs.pp',
+  'XPlayer': 'video.player.videoplayer'
 };
 
 export const getPlayerPackage = (playerName: string): string => {

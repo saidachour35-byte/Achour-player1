@@ -214,11 +214,10 @@ export function navigateSpatial(
   if (focusables.length === 0) return false;
 
   let actualDirection = direction;
-  if (isRtl) {
-    if (direction === 'left') actualDirection = 'right';
-    else if (direction === 'right') actualDirection = 'left';
-  }
-
+  // We remove the RTL swap here because users expect physical arrow keys 
+  // (Left/Right) to move focus to the element physically to the left/right 
+  // on the screen, regardless of text direction.
+  
   // If nothing is currently focused, or activeElement is body / root, focus the first logical item
   if (!current || current === document.body || !focusables.includes(current)) {
     focusables[0]?.focus();
@@ -295,6 +294,75 @@ export function navigateSpatial(
     if (score < bestScore) {
       bestScore = score;
       bestCandidate = candidate;
+    }
+  }
+
+  if (!bestCandidate) {
+    // Smart Fallback: Wrap to next/previous row or pick closest element in target half-plane
+    if (actualDirection === 'right') {
+      const below = focusables.filter(c => {
+        if (c === current) return false;
+        const r = c.getBoundingClientRect();
+        return r.top >= currentRect.bottom - 8;
+      });
+      if (below.length > 0) {
+        below.sort((a, b) => {
+          const ra = a.getBoundingClientRect();
+          const rb = b.getBoundingClientRect();
+          const dyDiff = (ra.top + ra.height / 2) - (rb.top + rb.height / 2);
+          if (Math.abs(dyDiff) > 20) return dyDiff;
+          return ra.left - rb.left;
+        });
+        bestCandidate = below[0];
+      }
+    } else if (actualDirection === 'left') {
+      const above = focusables.filter(c => {
+        if (c === current) return false;
+        const r = c.getBoundingClientRect();
+        return r.bottom <= currentRect.top + 8;
+      });
+      if (above.length > 0) {
+        above.sort((a, b) => {
+          const ra = a.getBoundingClientRect();
+          const rb = b.getBoundingClientRect();
+          const dyDiff = (rb.top + rb.height / 2) - (ra.top + ra.height / 2);
+          if (Math.abs(dyDiff) > 20) return dyDiff;
+          return rb.right - ra.right;
+        });
+        bestCandidate = above[0];
+      }
+    } else if (actualDirection === 'down') {
+      const below = focusables.filter(c => {
+        if (c === current) return false;
+        const r = c.getBoundingClientRect();
+        return r.top >= currentRect.top + 4;
+      });
+      if (below.length > 0) {
+        below.sort((a, b) => {
+          const ra = a.getBoundingClientRect();
+          const rb = b.getBoundingClientRect();
+          const distA = Math.hypot((ra.left + ra.width / 2) - currentCenterX, (ra.top + ra.height / 2) - currentCenterY);
+          const distB = Math.hypot((rb.left + rb.width / 2) - currentCenterX, (rb.top + rb.height / 2) - currentCenterY);
+          return distA - distB;
+        });
+        bestCandidate = below[0];
+      }
+    } else if (actualDirection === 'up') {
+      const above = focusables.filter(c => {
+        if (c === current) return false;
+        const r = c.getBoundingClientRect();
+        return r.bottom <= currentRect.bottom - 4;
+      });
+      if (above.length > 0) {
+        above.sort((a, b) => {
+          const ra = a.getBoundingClientRect();
+          const rb = b.getBoundingClientRect();
+          const distA = Math.hypot((ra.left + ra.width / 2) - currentCenterX, (ra.top + ra.height / 2) - currentCenterY);
+          const distB = Math.hypot((rb.left + rb.width / 2) - currentCenterX, (rb.top + rb.height / 2) - currentCenterY);
+          return distA - distB;
+        });
+        bestCandidate = above[0];
+      }
     }
   }
 

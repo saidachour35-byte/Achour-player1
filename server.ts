@@ -188,7 +188,9 @@ app.get('/api/proxy/xtream', async (req, res) => {
   const targetUrls = [
     `${sanitizedUrl}/player_api.php?username=${encodeURIComponent(username.trim())}&password=${encodeURIComponent(password.trim())}${additionalParams}`,
     `${sanitizedUrl}/get.php?username=${encodeURIComponent(username.trim())}&password=${encodeURIComponent(password.trim())}${additionalParams}`,
-    `${sanitizedUrl}/index.php?username=${encodeURIComponent(username.trim())}&password=${encodeURIComponent(password.trim())}${additionalParams}`
+    `${sanitizedUrl}/index.php?username=${encodeURIComponent(username.trim())}&password=${encodeURIComponent(password.trim())}${additionalParams}`,
+    `${sanitizedUrl}/xmltv.php?username=${encodeURIComponent(username.trim())}&password=${encodeURIComponent(password.trim())}${additionalParams}`,
+    `${sanitizedUrl}/?username=${encodeURIComponent(username.trim())}&password=${encodeURIComponent(password.trim())}${additionalParams}`
   ];
 
   let lastStatus = 500;
@@ -197,13 +199,19 @@ app.get('/api/proxy/xtream', async (req, res) => {
   const primaryUas = [
     'IPTVSmartersPro/3.1.5 (Linux; Android 12)',
     'TiviMate/4.7.0 (Linux; Android 11; SHIELD Android TV)',
-    'ExoPlayerLib/2.18.7'
+    'ExoPlayerLib/2.18.7',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+    'AppleCoreMedia/1.0.0.19G69 (Apple TV)',
+    'VLC/3.0.20 LibVLC/3.0.20',
+    'GSE Smart IPTV/1.0.0',
+    'IboPlayer/1.0.0',
+    'NoraGo/1.0.0'
   ];
 
   for (const targetUrl of targetUrls) {
     for (const ua of primaryUas) {
       try {
-        console.log(`[Xtream Proxy] Requesting: ${targetUrl} (Action: ${action || 'auth'})`);
+        console.log(`[Xtream Proxy] Requesting (UA: ${ua.substring(0, 20)}...): ${targetUrl} (Action: ${action || 'auth'})`);
         const response = await axios.get(targetUrl, { 
           timeout: 20000,
           headers: { 
@@ -214,23 +222,27 @@ app.get('/api/proxy/xtream', async (req, res) => {
             'Accept-Encoding': 'gzip, deflate',
             'Connection': 'keep-alive'
           },
-          validateStatus: (status) => (status >= 200 && status < 400) || status === 884
+          validateStatus: (status) => (status >= 200 && status < 400) || status === 401 || status === 403 || status === 404 || status === 884
         });
 
         lastStatus = response.status;
+
+        if (response.status === 401 || response.status === 403) {
+          lastErrMsg = `Authentication failed (${response.status})`;
+          console.warn(`[Xtream Proxy] Upstream returned ${response.status} for action ${action}. Trying next UA/URL.`);
+          continue;
+        }
+
+        if (response.status === 404) {
+          lastErrMsg = `Endpoint not found (404)`;
+          continue;
+        }
         
         let rawData = response.data;
         if (typeof rawData === 'string') {
           const trimmed = rawData.trim();
           if (trimmed.startsWith('<')) {
-            console.warn(`[Xtream Proxy] Upstream returned HTML (status ${response.status}) instead of JSON for action ${action}`);
-            if (response.status === 403) {
-              lastErrMsg = 'Forbidden: Server blocked access or IP/User-Agent (403)';
-            } else if (response.status === 429) {
-              lastErrMsg = 'Too Many Requests: Rate limited (429)';
-            } else {
-              lastErrMsg = 'Upstream server returned HTML block or error page';
-            }
+            console.warn(`[Xtream Proxy] Upstream returned HTML instead of JSON for action ${action}`);
             continue;
           }
           try { rawData = JSON.parse(rawData); } catch(e) {}
@@ -240,18 +252,19 @@ app.get('/api/proxy/xtream', async (req, res) => {
           return res.json(rawData);
         }
         
-        lastErrMsg = `Invalid data format`;
+        lastErrMsg = `Invalid data format (Status: ${response.status})`;
       } catch (error: any) {
         lastStatus = error.response?.status || 500;
         lastErrMsg = error.message;
 
         if (lastStatus === 429 || lastStatus === 403) {
           console.warn(`[Xtream Proxy] Status ${lastStatus} encountered. Delaying before retry...`);
-          await new Promise(resolve => setTimeout(resolve, 2500));
+          await new Promise(resolve => setTimeout(resolve, 1500));
           continue;
         }
         
         console.error(`[Xtream Proxy Error] Action: ${action}, Status: ${lastStatus}, Msg: ${lastErrMsg}`);
+        continue;
       }
     }
   }

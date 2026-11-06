@@ -23,6 +23,21 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, onReady }) => {
       controls: true,
       responsive: true,
       fluid: true,
+      bigPlayButton: false, // Remove default play button
+      loadingSpinner: true,
+      controlBar: {
+        children: [
+          'playToggle',
+          'volumePanel',
+          'currentTimeDisplay',
+          'timeDivider',
+          'durationDisplay',
+          'progressControl',
+          'liveDisplay',
+          'remainingTimeDisplay',
+          'fullscreenToggle',
+        ]
+      },
       sources: [{
         src: url || 'https://vjs.zencdn.net/v/oceans.mp4',
         type: url.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4'

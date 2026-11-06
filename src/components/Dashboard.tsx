@@ -87,7 +87,24 @@ const Icons = {
 
 export default function Dashboard({ userId, settings, onUpdateSettings, onTriggerSplash }: DashboardProps) {
   const [currentView, setCurrentView] = useState<View>('home');
-  const [showAddModal, setShowAddModal] = useState(false);
+  const [viewHistory, setViewHistory] = useState<View[]>([]);
+
+  const navigateToView = (view: View) => {
+    if (currentView !== view) {
+      setViewHistory(prev => [...prev, currentView]);
+      setCurrentView(view);
+    }
+  };
+
+  const navigateBack = () => {
+    if (viewHistory.length > 0) {
+      const prev = viewHistory[viewHistory.length - 1];
+      setViewHistory(prev => prev.slice(0, -1));
+      navigateToView(prev);
+      return true;
+    }
+    return false;
+  };
   const [showExitModal, setShowExitModal] = useState(false);
   const [activePlaylistData, setActivePlaylistData] = useState<Playlist | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -98,6 +115,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
   const [showSpeedTest, setShowSpeedTest] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showKidsUnlock, setShowKidsUnlock] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [isVoiceActive, setIsVoiceActive] = useState(false);
 
   const active3DStyle = React.useMemo(() => {
@@ -280,9 +298,10 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
         return true;
       }
 
-      // 2. Subviews (live, movies, series, add, settings) return to home
+      // 2. Subviews (live, movies, series, add, settings) return to previous view
       if (currentView !== 'home') {
-        setCurrentView('home');
+        const wentBack = navigateBack();
+        if (!wentBack) setCurrentView('home');
         return true;
       }
 
@@ -370,15 +389,15 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
     }
   };
 
-  if (currentView === 'live') return <LivePlayer onBack={() => setCurrentView('home')} settings={settings} onUpdateSettings={onUpdateSettings} userId={userId} />;
-  if (currentView === 'movies') return <LivePlayer onBack={() => setCurrentView('home')} settings={settings} onUpdateSettings={onUpdateSettings} userId={userId} initialType="movie" />;
-  if (currentView === 'series') return <LivePlayer onBack={() => setCurrentView('home')} settings={settings} onUpdateSettings={onUpdateSettings} userId={userId} initialType="series" />;
+  if (currentView === 'live') return <LivePlayer onBack={() => navigateBack() || setCurrentView('home')} settings={settings} onUpdateSettings={onUpdateSettings} userId={userId} />;
+  if (currentView === 'movies') return <LivePlayer onBack={() => navigateBack() || setCurrentView('home')} settings={settings} onUpdateSettings={onUpdateSettings} userId={userId} initialType="movie" />;
+  if (currentView === 'series') return <LivePlayer onBack={() => navigateBack() || setCurrentView('home')} settings={settings} onUpdateSettings={onUpdateSettings} userId={userId} initialType="series" />;
   
-  if (currentView === 'add') return <PlaylistManager onBack={() => setCurrentView('home')} userId={userId} settings={settings} onUpdateSettings={onUpdateSettings} />;
+  if (currentView === 'add') return <PlaylistManager onBack={() => navigateBack() || setCurrentView('home')} userId={userId} settings={settings} onUpdateSettings={onUpdateSettings} />;
 
   if (currentView === 'settings') return (
     <SettingsView 
-      onBack={() => setCurrentView('home')} 
+      onBack={() => navigateBack() || setCurrentView('home')} 
       settings={settings} 
       onUpdateSettings={onUpdateSettings} 
       userId={userId}
@@ -561,7 +580,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                   <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3.5 max-w-4xl w-full py-1">
                     <HubCard 
                       scale={iconScale}
-                      onClick={() => setCurrentView('live')} 
+                      onClick={() => navigateToView('live')} 
                       icon={
                         <div className={`w-10 h-10 sm:w-12 sm:h-12 p-2 rounded-xl flex items-center justify-center transition-all duration-300 ${active3DStyle.cardClass}`}>
                           {active3DStyle.iconImage ? (
@@ -576,7 +595,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                     />
                     <HubCard 
                       scale={iconScale}
-                      onClick={() => setCurrentView('movies')} 
+                      onClick={() => navigateToView('movies')} 
                       icon={
                         <div className={`w-10 h-10 sm:w-12 sm:h-12 p-2 rounded-xl flex items-center justify-center transition-all duration-300 ${active3DStyle.cardClass}`}>
                           {active3DStyle.iconImage ? (
@@ -591,7 +610,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                     />
                     <HubCard 
                       scale={iconScale}
-                      onClick={() => setCurrentView('series')} 
+                      onClick={() => navigateToView('series')} 
                       icon={
                         <div className={`w-10 h-10 sm:w-12 sm:h-12 p-2 rounded-xl flex items-center justify-center transition-all duration-300 ${active3DStyle.cardClass}`}>
                           {active3DStyle.iconImage ? (
@@ -606,7 +625,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                     />
                     <HubCard 
                       scale={iconScale}
-                      onClick={() => setCurrentView('add')} 
+                      onClick={() => navigateToView('add')} 
                       icon={
                         <div className={`w-10 h-10 sm:w-12 sm:h-12 p-2 rounded-xl flex items-center justify-center transition-all duration-300 ${active3DStyle.cardClass}`}>
                           {active3DStyle.iconImage ? (
@@ -621,7 +640,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                     />
                     <HubCard 
                       scale={iconScale}
-                      onClick={() => setCurrentView('settings')} 
+                      onClick={() => navigateToView('settings')} 
                       icon={
                         <div className={`w-10 h-10 sm:w-12 sm:h-12 p-2 rounded-xl flex items-center justify-center transition-all duration-300 ${active3DStyle.cardClass}`}>
                           {active3DStyle.iconImage ? (
@@ -649,7 +668,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       role="button"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setCurrentView('live')}
+                      onClick={() => navigateToView('live')}
                       className="sm:col-span-5 cursor-pointer glass-card p-3 sm:p-4 rounded-2xl border-2 border-white/60 shadow-gold/20 flex flex-col justify-between relative overflow-hidden group min-h-[140px] sm:min-h-[170px] max-h-[220px] bg-gradient-to-br from-gold/90 via-gold-dark/90 to-black text-white focus:outline-none focus:ring-4 focus:ring-gold transition-all"
                     >
                       <div className="flex items-center justify-between z-10">
@@ -685,7 +704,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
-                        onClick={() => setCurrentView('movies')}
+                        onClick={() => navigateToView('movies')}
                         className="glass-card p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-white/30 hover:border-white focus:outline-none focus:ring-4 focus:ring-gold flex flex-col items-center justify-center text-center group transition-all bg-gradient-to-br from-gold/80 to-gold-dark/80 text-white shadow-md"
                       >
                         <div className="w-7 h-7 sm:w-9 sm:h-9 mb-1 p-1 rounded-lg bg-white/10 text-white group-hover:scale-105 transition-transform flex items-center justify-center">
@@ -701,7 +720,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
-                        onClick={() => setCurrentView('series')}
+                        onClick={() => navigateToView('series')}
                         className="glass-card p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-white/30 hover:border-white focus:outline-none focus:ring-4 focus:ring-gold flex flex-col items-center justify-center text-center group transition-all bg-gradient-to-br from-gold/80 to-gold-dark/80 text-white shadow-md"
                       >
                         <div className="w-7 h-7 sm:w-9 sm:h-9 mb-1 p-1 rounded-lg bg-white/10 text-white group-hover:scale-105 transition-transform flex items-center justify-center">
@@ -717,7 +736,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
-                        onClick={() => setCurrentView('add')}
+                        onClick={() => navigateToView('add')}
                         className="glass-card p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-white/30 hover:border-white focus:outline-none focus:ring-4 focus:ring-gold flex flex-col items-center justify-center text-center group transition-all bg-gradient-to-br from-gold/80 to-gold-dark/80 text-white shadow-md"
                       >
                         <div className="w-7 h-7 sm:w-9 sm:h-9 mb-1 p-1 rounded-lg bg-white/10 text-white group-hover:scale-105 transition-transform flex items-center justify-center">
@@ -736,7 +755,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setCurrentView('settings')}
+                        onClick={() => navigateToView('settings')}
                         className="flex-1 glass-card p-2.5 rounded-xl border border-gold/40 hover:border-gold focus:outline-none focus:ring-4 focus:ring-gold flex items-center gap-2.5 px-3 transition-all group bg-black/60 text-white shadow-sm"
                       >
                         <div className="p-1.5 rounded-lg bg-gold/20 text-gold group-hover:rotate-45 transition-transform shrink-0">
@@ -806,11 +825,11 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                           MENU
                         </span>
                         {[
-                          { id: 'live', label: t('live'), icon: Icons.Live, action: () => setCurrentView('live') },
-                          { id: 'movies', label: t('movies'), icon: Icons.Filme, action: () => setCurrentView('movies') },
-                          { id: 'series', label: t('series'), icon: Icons.Serie, action: () => setCurrentView('series') },
-                          { id: 'add', label: isRtl ? 'الاشتراكات' : 'Subscriptions', icon: Icons.Playlist, action: () => setCurrentView('add') },
-                          { id: 'settings', label: t('settings'), icon: Settings, action: () => setCurrentView('settings') },
+                          { id: 'live', label: t('live'), icon: Icons.Live, action: () => navigateToView('live') },
+                          { id: 'movies', label: t('movies'), icon: Icons.Filme, action: () => navigateToView('movies') },
+                          { id: 'series', label: t('series'), icon: Icons.Serie, action: () => navigateToView('series') },
+                          { id: 'add', label: isRtl ? 'الاشتراكات' : 'Subscriptions', icon: Icons.Playlist, action: () => navigateToView('add') },
+                          { id: 'settings', label: t('settings'), icon: Settings, action: () => navigateToView('settings') },
                         ].map((item) => {
                           const IconComp = item.icon;
                           return (
@@ -851,7 +870,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.02 }}
-                        onClick={() => setCurrentView('live')}
+                        onClick={() => navigateToView('live')}
                         className="cursor-pointer glass-card p-4 rounded-2xl border border-gold/40 hover:border-gold flex flex-col justify-between bg-gradient-to-br from-gold/15 to-black group min-h-[160px]"
                       >
                         <div className="p-2.5 rounded-xl bg-gold/20 text-gold w-fit group-hover:scale-105 transition-transform">
@@ -875,7 +894,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.02 }}
-                        onClick={() => setCurrentView('movies')}
+                        onClick={() => navigateToView('movies')}
                         className="cursor-pointer glass-card p-4 rounded-2xl border border-gold/40 hover:border-gold flex flex-col justify-between bg-gradient-to-br from-gold/15 to-black group min-h-[160px]"
                       >
                         <div className="p-2.5 rounded-xl bg-gold/20 text-gold w-fit group-hover:scale-105 transition-transform">
@@ -899,7 +918,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.02 }}
-                        onClick={() => setCurrentView('series')}
+                        onClick={() => navigateToView('series')}
                         className="cursor-pointer glass-card p-4 rounded-2xl border border-gold/40 hover:border-gold flex flex-col justify-between bg-gradient-to-br from-gold/15 to-black group min-h-[160px]"
                       >
                         <div className="p-2.5 rounded-xl bg-gold/20 text-gold w-fit group-hover:scale-105 transition-transform">
@@ -932,7 +951,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       role="button"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setCurrentView('live')}
+                      onClick={() => navigateToView('live')}
                       className="col-span-2 row-span-2 cursor-pointer glass-card p-4 sm:p-5 rounded-2xl border-2 border-gold/50 shadow-md flex flex-col justify-between group bg-gradient-to-br from-gold/20 via-black to-black min-h-[160px] sm:min-h-[180px]"
                     >
                       <div className="p-2.5 rounded-xl bg-gold text-black w-fit group-hover:scale-105 transition-transform shadow-md">
@@ -953,7 +972,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }}
-                      onClick={() => setCurrentView('movies')}
+                      onClick={() => navigateToView('movies')}
                       className="col-span-2 cursor-pointer glass-card p-3 sm:p-3.5 rounded-2xl border border-gold/40 hover:border-gold flex items-center gap-3 group bg-black/60"
                     >
                       <div className="p-2 rounded-xl bg-gold/20 text-gold group-hover:scale-105 transition-transform">
@@ -972,7 +991,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }}
-                      onClick={() => setCurrentView('series')}
+                      onClick={() => navigateToView('series')}
                       className="col-span-2 cursor-pointer glass-card p-3 sm:p-3.5 rounded-2xl border border-gold/40 hover:border-gold flex items-center gap-3 group bg-black/60"
                     >
                       <div className="p-2 rounded-xl bg-gold/20 text-gold group-hover:scale-105 transition-transform">
@@ -991,7 +1010,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }}
-                      onClick={() => setCurrentView('add')}
+                      onClick={() => navigateToView('add')}
                       className="col-span-1 cursor-pointer glass-card p-2.5 sm:p-3 rounded-xl border border-amber-500/30 hover:border-amber-400 flex flex-col items-center justify-center text-center group bg-black/60"
                     >
                       <Icons.Playlist className="w-5 h-5 text-amber-400 mb-1" />
@@ -1003,7 +1022,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }}
-                      onClick={() => setCurrentView('settings')}
+                      onClick={() => navigateToView('settings')}
                       className="col-span-1 cursor-pointer glass-card p-2.5 sm:p-3 rounded-xl border border-gold/30 hover:border-gold flex flex-col items-center justify-center text-center group bg-black/60"
                     >
                       <Settings className="w-5 h-5 text-gold mb-1" />
@@ -1019,11 +1038,11 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                   <div className="w-full max-w-5xl py-2 overflow-x-auto scrollbar-hide my-auto">
                     <div className="flex items-center gap-3 px-2 min-w-max">
                       {[
-                        { id: 'live', title: t('live'), desc: 'Live Stream TV', icon: Icons.Live, action: () => setCurrentView('live') },
-                        { id: 'movies', title: t('movies'), desc: 'Cinema VOD', icon: Icons.Filme, action: () => setCurrentView('movies') },
-                        { id: 'series', title: t('series'), desc: 'Drama & Shows', icon: Icons.Serie, action: () => setCurrentView('series') },
-                        { id: 'add', title: isRtl ? 'الاشتراكات' : 'Subscriptions', desc: 'Portals', icon: Icons.Playlist, action: () => setCurrentView('add') },
-                        { id: 'settings', title: t('settings'), desc: 'System Config', icon: Settings, action: () => setCurrentView('settings') },
+                        { id: 'live', title: t('live'), desc: 'Live Stream TV', icon: Icons.Live, action: () => navigateToView('live') },
+                        { id: 'movies', title: t('movies'), desc: 'Cinema VOD', icon: Icons.Filme, action: () => navigateToView('movies') },
+                        { id: 'series', title: t('series'), desc: 'Drama & Shows', icon: Icons.Serie, action: () => navigateToView('series') },
+                        { id: 'add', title: isRtl ? 'الاشتراكات' : 'Subscriptions', desc: 'Portals', icon: Icons.Playlist, action: () => navigateToView('add') },
+                        { id: 'settings', title: t('settings'), desc: 'System Config', icon: Settings, action: () => navigateToView('settings') },
                       ].map((strip) => {
                         const StripIcon = strip.icon;
                         return (
@@ -1065,7 +1084,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.01 }}
-                      onClick={() => setCurrentView('live')}
+                      onClick={() => navigateToView('live')}
                       className="cursor-pointer glass-card p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-2 border-gold/50 shadow-md bg-gradient-to-r from-gold-dark/40 via-zinc-900 to-black flex items-center justify-between gap-4 relative overflow-hidden group"
                     >
                       <div className="space-y-1.5 z-10 text-left rtl:text-right">
@@ -1086,10 +1105,10 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       {[
-                        { id: 'movies', title: t('movies'), icon: Icons.Filme, action: () => setCurrentView('movies'), color: 'border-blue-500/40' },
-                        { id: 'series', title: t('series'), icon: Icons.Serie, action: () => setCurrentView('series'), color: 'border-purple-500/40' },
-                        { id: 'add', title: isRtl ? 'الاشتراكات' : 'Account', icon: Icons.Playlist, action: () => setCurrentView('add'), color: 'border-amber-500/40' },
-                        { id: 'settings', title: t('settings'), icon: Settings, action: () => setCurrentView('settings'), color: 'border-gold/40' },
+                        { id: 'movies', title: t('movies'), icon: Icons.Filme, action: () => navigateToView('movies'), color: 'border-blue-500/40' },
+                        { id: 'series', title: t('series'), icon: Icons.Serie, action: () => navigateToView('series'), color: 'border-purple-500/40' },
+                        { id: 'add', title: isRtl ? 'الاشتراكات' : 'Account', icon: Icons.Playlist, action: () => navigateToView('add'), color: 'border-amber-500/40' },
+                        { id: 'settings', title: t('settings'), icon: Settings, action: () => navigateToView('settings'), color: 'border-gold/40' },
                       ].map((card) => {
                         const CardIcon = card.icon;
                         return (
@@ -1125,7 +1144,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }} 
-                      onClick={() => setCurrentView('live')} 
+                      onClick={() => navigateToView('live')} 
                       className="cursor-pointer glass-card p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-2 border-cyan-500/50 shadow-lg bg-gradient-to-br from-cyan-950/50 to-black flex flex-col justify-between group min-h-[160px]"
                     >
                       <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 w-fit">
@@ -1143,7 +1162,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.03 }} 
-                        onClick={() => setCurrentView('movies')} 
+                        onClick={() => navigateToView('movies')} 
                         className="cursor-pointer glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gold/40 bg-black/60 flex flex-col justify-between group"
                       >
                         <Icons.Filme className="w-6 h-6 text-gold" />
@@ -1154,7 +1173,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.03 }} 
-                        onClick={() => setCurrentView('series')} 
+                        onClick={() => navigateToView('series')} 
                         className="cursor-pointer glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gold/40 bg-black/60 flex flex-col justify-between group"
                       >
                         <Icons.Serie className="w-6 h-6 text-gold" />
@@ -1165,7 +1184,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.03 }} 
-                        onClick={() => setCurrentView('add')} 
+                        onClick={() => navigateToView('add')} 
                         className="cursor-pointer glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gold/40 bg-black/60 flex flex-col justify-between group"
                       >
                         <Icons.Playlist className="w-6 h-6 text-gold" />
@@ -1176,7 +1195,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.03 }} 
-                        onClick={() => setCurrentView('settings')} 
+                        onClick={() => navigateToView('settings')} 
                         className="cursor-pointer glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gold/40 bg-black/60 flex flex-col justify-between group"
                       >
                         <Settings className="w-6 h-6 text-gold" />
@@ -1192,11 +1211,11 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                 {activeLayout === 'layout-minimal-list' && (
                   <div className="w-full max-w-xl flex flex-col gap-2 my-auto py-2">
                     {[
-                      { id: 'live', label: t('live'), icon: Icons.Live, action: () => setCurrentView('live') },
-                      { id: 'movies', label: t('movies'), icon: Icons.Filme, action: () => setCurrentView('movies') },
-                      { id: 'series', label: t('series'), icon: Icons.Serie, action: () => setCurrentView('series') },
-                      { id: 'add', label: isRtl ? 'الاشتراكات وإدارة السيرفرات' : 'Subscriptions & Portals', icon: Icons.Playlist, action: () => setCurrentView('add') },
-                      { id: 'settings', label: t('settings'), icon: Settings, action: () => setCurrentView('settings') },
+                      { id: 'live', label: t('live'), icon: Icons.Live, action: () => navigateToView('live') },
+                      { id: 'movies', label: t('movies'), icon: Icons.Filme, action: () => navigateToView('movies') },
+                      { id: 'series', label: t('series'), icon: Icons.Serie, action: () => navigateToView('series') },
+                      { id: 'add', label: isRtl ? 'الاشتراكات وإدارة السيرفرات' : 'Subscriptions & Portals', icon: Icons.Playlist, action: () => navigateToView('add') },
+                      { id: 'settings', label: t('settings'), icon: Settings, action: () => navigateToView('settings') },
                     ].map((item) => {
                       const ItemIcon = item.icon;
                       return (
@@ -1234,7 +1253,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.05 }} 
-                        onClick={() => setCurrentView('live')} 
+                        onClick={() => navigateToView('live')} 
                         className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 glass-card rounded-2xl sm:rounded-3xl border-2 border-gold/50 bg-black/75 flex flex-col items-center justify-center cursor-pointer group shadow-md"
                       >
                         <Icons.Live className="w-7 h-7 sm:w-8 sm:h-8 text-gold mb-1 group-hover:scale-110 transition-transform" />
@@ -1245,7 +1264,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.05 }} 
-                        onClick={() => setCurrentView('movies')} 
+                        onClick={() => navigateToView('movies')} 
                         className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 glass-card rounded-2xl sm:rounded-3xl border-2 border-gold/50 bg-black/75 flex flex-col items-center justify-center cursor-pointer group shadow-md"
                       >
                         <Icons.Filme className="w-7 h-7 sm:w-8 sm:h-8 text-gold mb-1 group-hover:scale-110 transition-transform" />
@@ -1258,7 +1277,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.05 }} 
-                        onClick={() => setCurrentView('series')} 
+                        onClick={() => navigateToView('series')} 
                         className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 glass-card rounded-2xl sm:rounded-3xl border-2 border-gold/50 bg-black/75 flex flex-col items-center justify-center cursor-pointer group shadow-md"
                       >
                         <Icons.Serie className="w-7 h-7 sm:w-8 sm:h-8 text-gold mb-1 group-hover:scale-110 transition-transform" />
@@ -1269,7 +1288,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.05 }} 
-                        onClick={() => setCurrentView('add')} 
+                        onClick={() => navigateToView('add')} 
                         className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 glass-card rounded-2xl sm:rounded-3xl border-2 border-gold/50 bg-black/75 flex flex-col items-center justify-center cursor-pointer group shadow-md"
                       >
                         <Icons.Playlist className="w-7 h-7 sm:w-8 sm:h-8 text-gold mb-1 group-hover:scale-110 transition-transform" />
@@ -1280,7 +1299,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         tabIndex={0}
                         role="button"
                         whileHover={{ scale: 1.05 }} 
-                        onClick={() => setCurrentView('settings')} 
+                        onClick={() => navigateToView('settings')} 
                         className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 glass-card rounded-2xl sm:rounded-3xl border-2 border-gold/50 bg-gold/15 flex flex-col items-center justify-center cursor-pointer group shadow-md"
                       >
                         <Settings className="w-7 h-7 sm:w-8 sm:h-8 text-gold mb-1 group-hover:rotate-45 transition-transform" />
@@ -1301,11 +1320,11 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                     </div>
                     <div className="glass-card p-2.5 sm:p-3.5 rounded-2xl sm:rounded-3xl border border-white/20 shadow-xl flex items-center gap-2 sm:gap-3 bg-black/80 backdrop-blur-xl">
                       {[
-                        { id: 'live', label: t('live'), icon: Icons.Live, action: () => setCurrentView('live') },
-                        { id: 'movies', label: t('movies'), icon: Icons.Filme, action: () => setCurrentView('movies') },
-                        { id: 'series', label: t('series'), icon: Icons.Serie, action: () => setCurrentView('series') },
-                        { id: 'add', label: isRtl ? 'الاشتراكات' : 'Account', icon: Icons.Playlist, action: () => setCurrentView('add') },
-                        { id: 'settings', label: t('settings'), icon: Settings, action: () => setCurrentView('settings') },
+                        { id: 'live', label: t('live'), icon: Icons.Live, action: () => navigateToView('live') },
+                        { id: 'movies', label: t('movies'), icon: Icons.Filme, action: () => navigateToView('movies') },
+                        { id: 'series', label: t('series'), icon: Icons.Serie, action: () => navigateToView('series') },
+                        { id: 'add', label: isRtl ? 'الاشتراكات' : 'Account', icon: Icons.Playlist, action: () => navigateToView('add') },
+                        { id: 'settings', label: t('settings'), icon: Settings, action: () => navigateToView('settings') },
                       ].map((dock) => {
                         const DockIcon = dock.icon;
                         return (
@@ -1337,7 +1356,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }} 
-                      onClick={() => setCurrentView('live')} 
+                      onClick={() => navigateToView('live')} 
                       className="sm:col-span-2 cursor-pointer glass-card p-4 sm:p-5 rounded-2xl border-2 border-pink-500/40 bg-gradient-to-r from-pink-950/40 to-black flex items-center justify-between group"
                     >
                       <div>
@@ -1351,7 +1370,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }} 
-                      onClick={() => setCurrentView('movies')} 
+                      onClick={() => navigateToView('movies')} 
                       className="cursor-pointer glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-blue-500/30 bg-black/60 flex flex-col justify-between group"
                     >
                       <Icons.Filme className="w-7 h-7 text-blue-400" />
@@ -1362,7 +1381,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }} 
-                      onClick={() => setCurrentView('series')} 
+                      onClick={() => navigateToView('series')} 
                       className="cursor-pointer glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-purple-500/30 bg-black/60 flex flex-col justify-between group"
                     >
                       <Icons.Serie className="w-7 h-7 text-purple-400" />
@@ -1373,7 +1392,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }} 
-                      onClick={() => setCurrentView('add')} 
+                      onClick={() => navigateToView('add')} 
                       className="cursor-pointer glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-amber-500/30 bg-black/60 flex flex-col justify-between group"
                     >
                       <Icons.Playlist className="w-7 h-7 text-amber-400" />
@@ -1384,7 +1403,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.02 }} 
-                      onClick={() => setCurrentView('settings')} 
+                      onClick={() => navigateToView('settings')} 
                       className="cursor-pointer glass-card p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gold/30 bg-gold/15 flex flex-col justify-between group"
                     >
                       <Settings className="w-7 h-7 text-gold" />
@@ -1403,7 +1422,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.01 }} 
-                      onClick={() => setCurrentView('live')} 
+                      onClick={() => navigateToView('live')} 
                       className="cursor-pointer glass-card p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-2 border-gold/50 shadow-md bg-gradient-to-r from-gold-dark/40 via-zinc-900 to-black flex items-center justify-between group"
                     >
                       <div>
@@ -1414,10 +1433,10 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                     </motion.div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       {[
-                        { title: t('movies'), action: () => setCurrentView('movies'), icon: Icons.Filme },
-                        { title: t('series'), action: () => setCurrentView('series'), icon: Icons.Serie },
-                        { title: isRtl ? 'الاشتراكات' : 'Account', action: () => setCurrentView('add'), icon: Icons.Playlist },
-                        { title: t('settings'), action: () => setCurrentView('settings'), icon: Settings },
+                        { title: t('movies'), action: () => navigateToView('movies'), icon: Icons.Filme },
+                        { title: t('series'), action: () => navigateToView('series'), icon: Icons.Serie },
+                        { title: isRtl ? 'الاشتراكات' : 'Account', action: () => navigateToView('add'), icon: Icons.Playlist },
+                        { title: t('settings'), action: () => navigateToView('settings'), icon: Settings },
                       ].map((card, i) => {
                         const IconComp = card.icon;
                         return (
@@ -1448,7 +1467,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                       tabIndex={0}
                       role="button"
                       whileHover={{ scale: 1.01 }} 
-                      onClick={() => setCurrentView('live')} 
+                      onClick={() => navigateToView('live')} 
                       className="cursor-pointer p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-r from-gold via-gold-dark to-black border-2 border-gold/50 text-white flex items-center justify-between shadow-lg"
                     >
                       <div>
@@ -1462,7 +1481,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         data-tv-focusable="true"
                         tabIndex={0}
                         whileHover={{ scale: 1.03 }} 
-                        onClick={() => setCurrentView('movies')} 
+                        onClick={() => navigateToView('movies')} 
                         className="p-3 sm:p-4 glass-card rounded-xl sm:rounded-2xl border border-gold/30 bg-black/60 flex flex-col items-center gap-1.5"
                       >
                         <Icons.Filme className="w-6 h-6 sm:w-7 sm:h-7 text-gold" />
@@ -1472,7 +1491,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         data-tv-focusable="true"
                         tabIndex={0}
                         whileHover={{ scale: 1.03 }} 
-                        onClick={() => setCurrentView('series')} 
+                        onClick={() => navigateToView('series')} 
                         className="p-3 sm:p-4 glass-card rounded-xl sm:rounded-2xl border border-gold/30 bg-black/60 flex flex-col items-center gap-1.5"
                       >
                         <Icons.Serie className="w-6 h-6 sm:w-7 sm:h-7 text-gold" />
@@ -1482,7 +1501,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         data-tv-focusable="true"
                         tabIndex={0}
                         whileHover={{ scale: 1.03 }} 
-                        onClick={() => setCurrentView('add')} 
+                        onClick={() => navigateToView('add')} 
                         className="p-3 sm:p-4 glass-card rounded-xl sm:rounded-2xl border border-gold/30 bg-black/60 flex flex-col items-center gap-1.5"
                       >
                         <Icons.Playlist className="w-6 h-6 sm:w-7 sm:h-7 text-gold" />
@@ -1492,7 +1511,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                         data-tv-focusable="true"
                         tabIndex={0}
                         whileHover={{ scale: 1.03 }} 
-                        onClick={() => setCurrentView('settings')} 
+                        onClick={() => navigateToView('settings')} 
                         className="p-3 sm:p-4 glass-card rounded-xl sm:rounded-2xl border border-gold/30 bg-black/60 flex flex-col items-center gap-1.5"
                       >
                         <Settings className="w-6 h-6 sm:w-7 sm:h-7 text-gold" />
@@ -1508,10 +1527,10 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                 {activeLayout === 'layout-android-tv' && (
                   <div className="w-full max-w-3xl flex flex-col gap-2.5 my-auto py-2">
                     {[
-                      { title: t('live'), action: () => setCurrentView('live'), icon: Icons.Live, color: 'border-gold/40 bg-gold/10' },
-                      { title: t('movies'), action: () => setCurrentView('movies'), icon: Icons.Filme, color: 'border-gold/40 bg-gold/10' },
-                      { title: t('series'), action: () => setCurrentView('series'), icon: Icons.Serie, color: 'border-gold/40 bg-gold/10' },
-                      { title: t('settings'), action: () => setCurrentView('settings'), icon: Settings, color: 'border-gold/40 bg-gold/15' },
+                      { title: t('live'), action: () => navigateToView('live'), icon: Icons.Live, color: 'border-gold/40 bg-gold/10' },
+                      { title: t('movies'), action: () => navigateToView('movies'), icon: Icons.Filme, color: 'border-gold/40 bg-gold/10' },
+                      { title: t('series'), action: () => navigateToView('series'), icon: Icons.Serie, color: 'border-gold/40 bg-gold/10' },
+                      { title: t('settings'), action: () => navigateToView('settings'), icon: Settings, color: 'border-gold/40 bg-gold/15' },
                     ].map((row, i) => {
                       const RowIcon = row.icon;
                       return (
@@ -1541,35 +1560,35 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                 {activeLayout === 'layout-modern-bento' && (
                   <div className="w-full max-w-4xl grid grid-cols-2 sm:grid-cols-4 gap-3 my-auto py-2">
                     <motion.div 
-                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => setCurrentView('live')}
+                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => navigateToView('live')}
                       className="col-span-2 row-span-2 cursor-pointer glass-card p-5 rounded-3xl border-2 border-blue-500/40 bg-gradient-to-br from-blue-950/40 to-black flex flex-col justify-between group min-h-[220px]"
                     >
                       <div className="p-3 rounded-2xl bg-blue-500/20 text-blue-400 w-fit"><Icons.Live className="w-10 h-10" /></div>
                       <div className="space-y-1"><span className="text-[10px] font-mono font-bold text-blue-400 uppercase tracking-widest block">FEATURED LIVE</span><h2 className="text-2xl font-black uppercase text-white group-hover:text-blue-300">{t('live')}</h2></div>
                     </motion.div>
                     <motion.div 
-                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => setCurrentView('movies')}
+                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => navigateToView('movies')}
                       className="col-span-2 cursor-pointer glass-card p-4 rounded-3xl border-2 border-gold/40 bg-black/60 flex items-center justify-between group"
                     >
                       <div className="flex items-center gap-3"><Icons.Filme className="w-7 h-7 text-gold" /><h3 className="text-base font-black uppercase text-white group-hover:text-gold">{t('movies')}</h3></div>
                       <ChevronRight className="text-gold" size={20} />
                     </motion.div>
                     <motion.div 
-                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => setCurrentView('series')}
+                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => navigateToView('series')}
                       className="col-span-2 cursor-pointer glass-card p-4 rounded-3xl border-2 border-gold/40 bg-black/60 flex items-center justify-between group"
                     >
                       <div className="flex items-center gap-3"><Icons.Serie className="w-7 h-7 text-gold" /><h3 className="text-base font-black uppercase text-white group-hover:text-gold">{t('series')}</h3></div>
                       <ChevronRight className="text-gold" size={20} />
                     </motion.div>
                     <motion.div 
-                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => setCurrentView('add')}
+                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => navigateToView('add')}
                       className="cursor-pointer glass-card p-4 rounded-3xl border-2 border-zinc-700 bg-black/60 flex flex-col items-center justify-center group"
                     >
                       <Icons.Playlist className="w-6 h-6 text-zinc-400 group-hover:text-white mb-1" />
                       <span className="text-[10px] font-black text-white uppercase">{isRtl ? 'الحساب' : 'Account'}</span>
                     </motion.div>
                     <motion.div 
-                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => setCurrentView('settings')}
+                      data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.02 }} onClick={() => navigateToView('settings')}
                       className="cursor-pointer glass-card p-4 rounded-3xl border-2 border-zinc-700 bg-black/60 flex flex-col items-center justify-center group"
                     >
                       <Settings className="w-6 h-6 text-zinc-400 group-hover:text-white mb-1" />
@@ -1585,11 +1604,11 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                   <div className="w-full max-w-5xl grid grid-cols-12 gap-4 my-auto py-2">
                     <div className="col-span-3 flex flex-col gap-2 p-2 bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10">
                       {[
-                        { id: 'live', icon: Icons.Live, action: () => setCurrentView('live') },
-                        { id: 'movies', icon: Icons.Filme, action: () => setCurrentView('movies') },
-                        { id: 'series', icon: Icons.Serie, action: () => setCurrentView('series') },
-                        { id: 'add', icon: Icons.Playlist, action: () => setCurrentView('add') },
-                        { id: 'settings', icon: Settings, action: () => setCurrentView('settings') },
+                        { id: 'live', icon: Icons.Live, action: () => navigateToView('live') },
+                        { id: 'movies', icon: Icons.Filme, action: () => navigateToView('movies') },
+                        { id: 'series', icon: Icons.Serie, action: () => navigateToView('series') },
+                        { id: 'add', icon: Icons.Playlist, action: () => navigateToView('add') },
+                        { id: 'settings', icon: Settings, action: () => navigateToView('settings') },
                       ].map(item => (
                         <motion.button 
                           key={item.id} data-tv-focusable="true" tabIndex={0} whileHover={{ scale: 1.05 }} onClick={item.action}
@@ -1601,7 +1620,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                     </div>
                     <div className="col-span-9">
                       <motion.div 
-                        data-tv-focusable="true" tabIndex={0} role="button" onClick={() => setCurrentView('live')}
+                        data-tv-focusable="true" tabIndex={0} role="button" onClick={() => navigateToView('live')}
                         className="w-full h-full min-h-[300px] rounded-3xl border-2 border-gold/40 bg-gradient-to-tr from-gold-dark/40 to-black p-8 flex flex-col justify-end group cursor-pointer"
                       >
                          <span className="text-xs font-mono font-bold text-gold uppercase tracking-[0.3em] mb-2">GLASS SIDEBAR HUB</span>
@@ -1617,11 +1636,11 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                 {activeLayout === 'layout-compact-tiles' && (
                   <div className="w-full max-w-4xl grid grid-cols-3 sm:grid-cols-5 gap-2 my-auto py-2">
                     {[
-                      { title: t('live'), icon: Icons.Live, action: () => setCurrentView('live') },
-                      { title: t('movies'), icon: Icons.Filme, action: () => setCurrentView('movies') },
-                      { title: t('series'), icon: Icons.Serie, action: () => setCurrentView('series') },
-                      { title: isRtl ? 'الاشتراكات' : 'Account', icon: Icons.Playlist, action: () => setCurrentView('add') },
-                      { title: t('settings'), icon: Settings, action: () => setCurrentView('settings') },
+                      { title: t('live'), icon: Icons.Live, action: () => navigateToView('live') },
+                      { title: t('movies'), icon: Icons.Filme, action: () => navigateToView('movies') },
+                      { title: t('series'), icon: Icons.Serie, action: () => navigateToView('series') },
+                      { title: isRtl ? 'الاشتراكات' : 'Account', icon: Icons.Playlist, action: () => navigateToView('add') },
+                      { title: t('settings'), icon: Settings, action: () => navigateToView('settings') },
                     ].map((item, i) => (
                       <motion.button 
                         key={i} data-tv-focusable="true" tabIndex={0} whileHover={{ scale: 1.05 }} onClick={item.action}
@@ -1641,11 +1660,11 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                   <div className="w-full max-w-6xl my-auto py-8">
                     <div className="flex flex-wrap items-center justify-center gap-8 perspective-2000">
                       {[
-                        { id: 'live', title: t('live'), icon: Icons.Live, color: 'from-gold via-gold-dark to-black', action: () => setCurrentView('live'), desc: 'Ultra HD Broadcast' },
-                        { id: 'movies', title: t('movies'), icon: Icons.Filme, color: 'from-blue-600 via-blue-900 to-black', action: () => setCurrentView('movies'), desc: 'Cinema 4K VOD' },
-                        { id: 'series', title: t('series'), icon: Icons.Serie, color: 'from-purple-600 via-purple-900 to-black', action: () => setCurrentView('series'), desc: 'Premium Series' },
-                        { id: 'add', title: isRtl ? 'الاشتراكات' : 'Account', icon: Icons.Playlist, color: 'from-emerald-600 via-emerald-900 to-black', action: () => setCurrentView('add'), desc: 'Portals & Playlists' },
-                        { id: 'settings', title: t('settings'), icon: Settings, color: 'from-zinc-600 via-zinc-800 to-black', action: () => setCurrentView('settings'), desc: 'System Configuration' },
+                        { id: 'live', title: t('live'), icon: Icons.Live, color: 'from-gold via-gold-dark to-black', action: () => navigateToView('live'), desc: 'Ultra HD Broadcast' },
+                        { id: 'movies', title: t('movies'), icon: Icons.Filme, color: 'from-blue-600 via-blue-900 to-black', action: () => navigateToView('movies'), desc: 'Cinema 4K VOD' },
+                        { id: 'series', title: t('series'), icon: Icons.Serie, color: 'from-purple-600 via-purple-900 to-black', action: () => navigateToView('series'), desc: 'Premium Series' },
+                        { id: 'add', title: isRtl ? 'الاشتراكات' : 'Account', icon: Icons.Playlist, color: 'from-emerald-600 via-emerald-900 to-black', action: () => navigateToView('add'), desc: 'Portals & Playlists' },
+                        { id: 'settings', title: t('settings'), icon: Settings, color: 'from-zinc-600 via-zinc-800 to-black', action: () => navigateToView('settings'), desc: 'System Configuration' },
                       ].map((card, i) => (
                         <motion.div
                           key={card.id}
@@ -1683,7 +1702,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                 {activeLayout === 'layout-split-hero' && (
                   <div className="w-full max-w-5xl grid grid-cols-12 gap-3 my-auto py-2">
                     <motion.div 
-                      data-tv-focusable="true" tabIndex={0} role="button" onClick={() => setCurrentView('live')}
+                      data-tv-focusable="true" tabIndex={0} role="button" onClick={() => navigateToView('live')}
                       className="col-span-7 h-[280px] rounded-3xl border-2 border-gold/40 bg-black/60 p-8 flex flex-col justify-end group cursor-pointer relative overflow-hidden"
                     >
                       <div className="absolute top-0 right-0 w-32 h-32 bg-gold/10 blur-[60px] rounded-full" />
@@ -1692,21 +1711,21 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
                     </motion.div>
                     <div className="col-span-5 grid grid-cols-2 gap-3">
                       <motion.div 
-                        data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.05 }} onClick={() => setCurrentView('movies')}
+                        data-tv-focusable="true" tabIndex={0} role="button" whileHover={{ scale: 1.05 }} onClick={() => navigateToView('movies')}
                         className="col-span-2 h-[130px] rounded-3xl bg-blue-600/20 border border-blue-500/30 p-4 flex items-center justify-between group cursor-pointer"
                       >
                         <div><h3 className="text-lg font-black text-white uppercase group-hover:text-blue-300 transition-colors">{t('movies')}</h3><span className="text-[10px] text-blue-400 font-bold uppercase">4K ULTRA VOD</span></div>
                         <Icons.Filme className="w-10 h-10 text-blue-500/40" />
                       </motion.div>
                       <motion.button 
-                        data-tv-focusable="true" tabIndex={0} whileHover={{ scale: 1.05 }} onClick={() => setCurrentView('series')}
+                        data-tv-focusable="true" tabIndex={0} whileHover={{ scale: 1.05 }} onClick={() => navigateToView('series')}
                         className="h-[135px] rounded-3xl bg-purple-600/20 border border-purple-500/30 flex flex-col items-center justify-center gap-1 group"
                       >
                         <Icons.Serie className="w-8 h-8 text-purple-400 group-hover:text-purple-300" />
                         <span className="text-[10px] font-black text-white uppercase">{t('series')}</span>
                       </motion.button>
                       <motion.button 
-                        data-tv-focusable="true" tabIndex={0} whileHover={{ scale: 1.05 }} onClick={() => setCurrentView('settings')}
+                        data-tv-focusable="true" tabIndex={0} whileHover={{ scale: 1.05 }} onClick={() => navigateToView('settings')}
                         className="h-[135px] rounded-3xl bg-zinc-800/40 border border-white/10 flex flex-col items-center justify-center gap-1 group"
                       >
                         <Settings className="w-8 h-8 text-zinc-400 group-hover:text-white" />
@@ -1747,11 +1766,11 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
 
                        {/* Cosmic Items */}
                        {[
-                         { id: 'live', icon: Icons.Live, action: () => setCurrentView('live'), angle: -90, color: 'from-red-500 to-red-900', label: t('live') },
-                         { id: 'movies', icon: Icons.Filme, action: () => setCurrentView('movies'), angle: -20, color: 'from-blue-500 to-blue-900', label: t('movies') },
-                         { id: 'series', icon: Icons.Serie, action: () => setCurrentView('series'), angle: 45, color: 'from-purple-500 to-purple-900', label: t('series') },
-                         { id: 'add', icon: Icons.Playlist, action: () => setCurrentView('add'), angle: 135, color: 'from-emerald-500 to-emerald-900', label: isRtl ? 'الاشتراكات' : 'Portals' },
-                         { id: 'settings', icon: Settings, action: () => setCurrentView('settings'), angle: 210, color: 'from-zinc-500 to-zinc-900', label: t('settings') },
+                         { id: 'live', icon: Icons.Live, action: () => navigateToView('live'), angle: -90, color: 'from-red-500 to-red-900', label: t('live') },
+                         { id: 'movies', icon: Icons.Filme, action: () => navigateToView('movies'), angle: -20, color: 'from-blue-500 to-blue-900', label: t('movies') },
+                         { id: 'series', icon: Icons.Serie, action: () => navigateToView('series'), angle: 45, color: 'from-purple-500 to-purple-900', label: t('series') },
+                         { id: 'add', icon: Icons.Playlist, action: () => navigateToView('add'), angle: 135, color: 'from-emerald-500 to-emerald-900', label: isRtl ? 'الاشتراكات' : 'Portals' },
+                         { id: 'settings', icon: Settings, action: () => navigateToView('settings'), angle: 210, color: 'from-zinc-500 to-zinc-900', label: t('settings') },
                        ].map((item, i) => {
                          const radius = 180;
                          const x = radius * Math.cos((item.angle * Math.PI) / 180);

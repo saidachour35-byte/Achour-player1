@@ -15,6 +15,12 @@ export const isAndroidDevice = (): boolean => {
   return !!((window as any).AchourNative || /android/i.test(ua) || ua.includes('wv') || (ua.includes('android') && ua.includes('version/')));
 };
 
+export const isFireTV = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('firetv') || ua.includes('fire tv') || ua.includes('aft') || ua.includes('amazon');
+};
+
 
 /**
  * Transforms a URL based on the environment.

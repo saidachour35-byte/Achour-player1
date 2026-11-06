@@ -57,32 +57,33 @@
     text-shadow: 0 0 10px var(--theme-glow, rgba(229, 160, 13, 0.5));
   }
 
-  /* Single, crisp, razor-sharp TV focus ring bound dynamically to active theme color */
+  /* Single, crisp, razor-sharp TV focus ring - Strictly ONE focus box on screen */
   :focus-visible,
-  :focus,
-  [data-tv-focused="true"],
   [data-tv-focusable="true"]:focus,
   [data-tv-focusable="true"]:focus-visible,
-  button:focus,
   button:focus-visible, 
   [role="button"]:focus,
   [role="button"]:focus-visible, 
-  a:focus,
   a:focus-visible, 
   input:focus,
   input:focus-visible, 
   select:focus,
   select:focus-visible,
   textarea:focus,
-  textarea:focus-visible,
-  [tabindex="0"]:focus,
-  [tabindex="0"]:focus-visible {
+  textarea:focus-visible {
     outline: none !important;
-    box-shadow: 0 0 0 3.5px var(--theme-primary, #e5a00d), 0 0 25px var(--theme-glow, rgba(229, 160, 13, 0.55)) !important;
+    box-shadow: 0 0 0 3.5px var(--theme-primary, #e5a00d), 0 0 25px var(--theme-glow, rgba(229, 160, 13, 0.6)) !important;
     border-color: var(--theme-primary, #e5a00d) !important;
-    transform: scale(1.025);
+    transform: scale(1.02);
     z-index: 50 !important;
-    transition: transform 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
+    transition: none !important; /* Immediate snap - zero lingering ghost focus frames */
+  }
+
+  /* When focus leaves an element, strip the outline instantly */
+  [data-tv-focusable="true"]:not(:focus):not(:focus-visible),
+  button:not(:focus-visible),
+  [role="button"]:not(:focus):not(:focus-visible) {
+    transition: none !important;
   }
 }
 

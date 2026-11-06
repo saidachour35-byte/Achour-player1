@@ -26,7 +26,7 @@ import {
   toggleFavorite as toggleFavoriteService, 
   subscribeFavorites 
 } from '../utils/favoritesService';
-import { xtreamFetch } from '../utils/iptv';
+import { xtreamFetch, ensureArray } from '../utils/iptv';
 import { getRecents, addToRecents } from '../utils/recentService';
 import { getPlatformUrl, isAndroid } from '../utils/platform';
 import { formatLanguageLabel } from '../utils/mediaTracks';
@@ -126,13 +126,19 @@ const CategoryButton = React.memo(({ cat, catIdx, isSelected, onSelect, onReorde
   );
 });
 
-const ChannelListItem = React.memo(({ ch, idx, isSelected, isFav, onSelect, onToggleFavorite, onReorder, onMove, isRtl, totalCount, channels, onDoubleClick }: any) => {
+const ChannelListItem = React.memo(({ ch, idx, isSelected, isFav, onSelect, onToggleFavorite, onReorder, onMove, isRtl, totalCount, channels, onDoubleClick, onChannelActionMenu }: any) => {
   const lastClickRef = useRef<number>(0);
 
-  const longPress = useLongPress(() => {
-    const realIdx = channels.findIndex((c: any) => c.stream_id === ch.stream_id);
-    onReorder({ ...ch, realIdx });
-  });
+  const triggerAction = () => {
+    if (onChannelActionMenu) {
+      onChannelActionMenu(ch, idx);
+    } else {
+      const realIdx = channels ? channels.findIndex((c: any) => c.stream_id === ch.stream_id) : idx;
+      onReorder({ ...ch, realIdx });
+    }
+  };
+
+  const longPress = useLongPress(triggerAction, 500);
 
   const handleClick = (e: React.MouseEvent | React.TouchEvent) => {
     const now = Date.now();
@@ -159,26 +165,31 @@ const ChannelListItem = React.memo(({ ch, idx, isSelected, isFav, onSelect, onTo
       {...longPress}
       onClick={handleClick}
       onFocus={(e) => {
-        e.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        e.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'auto' });
       }}
       onKeyDown={(e) => {
         if (longPress.onKeyDown) longPress.onKeyDown(e as any);
 
-        // Direct Left Arrow -> Focus active Category item directly without intermediate hops
-        if (e.key === 'ArrowLeft' || e.keyCode === 37 || e.keyCode === 21) {
+        // Directional Navigation logic adjusted for RTL/LTR
+        const isLeft = e.key === 'ArrowLeft' || e.keyCode === 37 || e.keyCode === 21;
+        const isRight = e.key === 'ArrowRight' || e.keyCode === 39 || e.keyCode === 22;
+
+        const toCategories = isRtl ? isRight : isLeft;
+        const toPlayer = isRtl ? isLeft : isRight;
+
+        if (toCategories) {
           e.preventDefault();
           e.stopPropagation();
           const activeCat = document.querySelector('[data-tv-pane="categories"].bg-gold\\/20') as HTMLElement ||
                             document.querySelector('[data-tv-pane="categories"]') as HTMLElement;
           if (activeCat) {
             activeCat.focus();
-            activeCat.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            activeCat.scrollIntoView({ block: 'nearest', behavior: 'auto' });
           }
           return;
         }
 
-        // Direct Right Arrow -> Focus player viewport
-        if (e.key === 'ArrowRight' || e.keyCode === 39 || e.keyCode === 22) {
+        if (toPlayer) {
           e.preventDefault();
           e.stopPropagation();
           const playerTarget = document.querySelector('[data-tv-pane="player"]') as HTMLElement;
@@ -204,43 +215,26 @@ const ChannelListItem = React.memo(({ ch, idx, isSelected, isFav, onSelect, onTo
           onDoubleClick(ch);
         }
       }}
-      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-all relative group cursor-pointer focus:outline-none focus:ring-4 focus:ring-gold focus:scale-102 ${
+      className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-none relative group cursor-pointer focus:outline-none focus:ring-4 focus:ring-gold focus:border-gold focus:bg-gold/20 ${
         isSelected 
           ? 'bg-gold/20 text-white border-gold shadow-sm' 
           : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
       } ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}
     >
-      <button 
-        tabIndex={-1}
-        onClick={(e) => {
-          e.stopPropagation();
-          const realIdx = channels.findIndex((c: any) => c.stream_id === ch.stream_id);
-          onReorder({ ...ch, realIdx });
-        }}
-        className="w-5 text-[10px] text-gold font-mono font-bold shrink-0 hover:underline focus:outline-none"
-        title="تغيير الترتيب / الرقم"
-      >
+      <span className="w-6 text-[10px] text-gold font-mono font-bold shrink-0 select-none pointer-events-none text-center">
         {idx + 1}
-      </button>
-      <div className="w-7 h-7 aspect-square rounded-lg bg-black/60 flex items-center justify-center overflow-hidden shrink-0 border border-white/10 shadow-sm">
+      </span>
+      <div className="w-7 h-7 aspect-square rounded-lg bg-black/60 flex items-center justify-center overflow-hidden shrink-0 border border-white/10 shadow-sm pointer-events-none">
         {ch.stream_icon ? (
           <img src={ch.stream_icon} className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} alt="" />
         ) : (
           <Play size={11} className={isSelected ? 'text-gold' : 'text-zinc-600'} />
         )}
       </div>
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden pointer-events-none">
         <span className="text-[10px] sm:text-[11px] font-bold truncate leading-snug text-zinc-200">{ch.name}</span>
         <span className="text-[8px] font-bold text-gold/50 truncate uppercase tracking-tight">{ch.category_name || 'General'}</span>
       </div>
-      
-      <button 
-        tabIndex={-1}
-        onClick={(e) => { e.stopPropagation(); onToggleFavorite(ch.stream_id); }} 
-        className={`p-1 rounded-lg transition-all focus:outline-none ${isFav ? 'text-gold' : 'text-zinc-600 opacity-0 group-hover:opacity-100 hover:text-white'}`}
-      >
-        <Star size={12} className={isFav ? 'fill-gold' : ''} />
-      </button>
     </div>
   );
 });
@@ -368,11 +362,15 @@ const MultiVideoSlot: React.FC<MultiVideoSlotProps> = ({
     const videoTag = document.createElement('video');
     videoTag.autoplay = true;
     videoTag.playsInline = true;
+    videoTag.controls = false;
     videoTag.setAttribute('playsinline', 'true');
     videoTag.setAttribute('webkit-playsinline', 'true');
     videoTag.setAttribute('crossorigin', 'anonymous');
-    videoTag.style.backgroundColor = '#000000';
+    videoTag.setAttribute('poster', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+    videoTag.poster = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     videoTag.className = `${getAspectRatioClass(aspectRatio)} pointer-events-none`;
+    videoTag.style.backgroundColor = '#000000';
+    videoTag.style.opacity = '1';
     videoTag.volume = isActive ? (isMuted ? 0 : volume) : 0;
     videoTag.muted = !isActive || isMuted || volume === 0;
     videoTag.style.filter = `brightness(${brightness})`;
@@ -427,12 +425,18 @@ const MultiVideoSlot: React.FC<MultiVideoSlotProps> = ({
       updateResolutionMeta();
     };
 
-    videoTag.onplay = () => {
+    const markVideoReady = () => {
       setSlotLoading(false);
       setStreamError(null);
       updateResolutionMeta();
+      videoTag.style.opacity = '1';
       if (isActive) onPlayingChange(true);
     };
+
+    videoTag.onloadeddata = markVideoReady;
+    videoTag.oncanplay = markVideoReady;
+    videoTag.onplaying = markVideoReady;
+    videoTag.onplay = markVideoReady;
     videoTag.onpause = () => {
       if (isActive) onPlayingChange(false);
     };
@@ -498,22 +502,24 @@ const MultiVideoSlot: React.FC<MultiVideoSlotProps> = ({
           enableHardwareAcceleration: true
         };
       } else {
-        // Default Optimized Achour Engine (Fast Switching & TV Compatibility & 4K Clarity)
         hlsConfig = { 
           enableWorker: false, // CRITICAL: Better compatibility on Android TVs/Fire TV
           lowLatencyMode: true, 
           backBufferLength: 0,
-          maxBufferLength: 6,
-          maxMaxBufferLength: 12,
-          manifestLoadingMaxRetry: 8,
+          maxBufferLength: 10,
+          maxMaxBufferLength: 20,
+          manifestLoadingMaxRetry: 10,
           manifestLoadingRetryDelay: 500,
-          levelLoadingMaxRetry: 8,
+          levelLoadingMaxRetry: 10,
           levelLoadingRetryDelay: 500,
-          startLevel: -1,
-          liveSyncDurationCount: 2,
-          capLevelToPlayerSize: true, // Optimizes 4K rendering
+          startLevel: -1, // Use Auto ABR for all slots so video stream is selected, avoiding black screen
+          liveSyncDurationCount: 3,
+          capLevelToPlayerSize: false, // Prevent capping to 0x0 before TV layout completes
           adaptiveMaxWidth: 3840,
-          enableHardwareAcceleration: true // Better 4K color handling
+          enableHardwareAcceleration: true, // Better 4K color handling
+          reuseVpc: true, // Optimize decoder reuse on Fire TV
+          nudgeMaxRetries: 10,
+          maxFragLookUpTolerance: 0.5
         };
       }
 
@@ -648,12 +654,22 @@ const MultiVideoSlot: React.FC<MultiVideoSlotProps> = ({
     <div
       data-tv-focusable="true"
       data-tv-pane="player"
-      onClick={onClick}
-      onDoubleClick={onDoubleClick}
-      className={`relative w-full h-full bg-zinc-950 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer group ${
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === 'Select' || e.keyCode === 13 || e.keyCode === 23) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (multiViewMode !== 'none') {
+            // MAXIMIZE current slot to full screen
+            onDoubleClick();
+          } else {
+            onClick(e as any);
+          }
+        }
+      }}
+      className={`relative w-full h-full bg-zinc-950 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer group outline-none focus:ring-4 focus:ring-gold ${
         multiViewMode !== 'none'
           ? isActive
-            ? 'ring-4 ring-gold z-30 shadow-2xl'
+            ? 'ring-4 ring-gold z-30 shadow-2xl scale-[1.01]'
             : 'ring-1 ring-white/10 opacity-85 hover:opacity-100'
           : 'border-0'
       }`}
@@ -899,6 +915,20 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
   const [isVoiceActive, setIsVoiceActive] = useState(false);
   const listContainerRef = useRef<HTMLDivElement>(null);
 
+  // Sync activePlaylist state from settings on mount or when playlist changes
+  useEffect(() => {
+    const syncPlaylist = async () => {
+      if (!settings.activePlaylistId) return;
+      const rawLocal = localStorage.getItem('achour_local_playlists');
+      const localList: Playlist[] = rawLocal ? JSON.parse(rawLocal) : [];
+      const found = localList.find(p => p.id === settings.activePlaylistId);
+      if (found) {
+        setActivePlaylist(found);
+      }
+    };
+    syncPlaylist();
+  }, [settings.activePlaylistId]);
+
   useEffect(() => {
     const restoreLastChannel = async () => {
       // Do not auto-select or auto-play channel on Live TV initial load so user can browse categories/channels first
@@ -917,35 +947,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
     if (!loading) restoreLastChannel();
   }, [loading, channels, selectedChannel, mediaType]);
 
-  // Register pushBackHandler in LivePlayer so remote & phone Back button navigates back cleanly
-  useEffect(() => {
-    const unregister = pushBackHandler(() => {
-      if (showOcr) { setShowOcr(false); return true; }
-      if (showPinModal) { setShowPinModal(false); return true; }
-      if (showRemoteHelp) { setShowRemoteHelp(false); return true; }
-      if (showOverlayChannelDrawer) { setShowOverlayChannelDrawer(false); return true; }
-      if (movieDetailsModal) { setMovieDetailsModal(null); return true; }
-      if (showEpgGrid) { setShowEpgGrid(false); return true; }
 
-      if (activeVodPlayer) {
-        setActiveVodPlayer(null);
-        return true;
-      }
-
-      if (selectedChannel) {
-        setSelectedChannel(null);
-        return true;
-      }
-
-      onBack();
-      return true;
-    });
-
-    return unregister;
-  }, [
-    showOcr, showPinModal, showRemoteHelp, showOverlayChannelDrawer,
-    movieDetailsModal, showEpgGrid, activeVodPlayer, selectedChannel, onBack
-  ]);
 
   useEffect(() => {
     setItemsToShow(100);
@@ -972,6 +974,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
   }, []);
 
   const [multiViewMode, setMultiViewMode] = useState<'none' | 'dual' | 'quad'>('none');
+  const [previousMultiViewMode, setPreviousMultiViewMode] = useState<'none' | 'dual' | 'quad'>('none');
   const [multiChannels, setMultiChannels] = useState<(ParsedChannel | null)[]>([null, null, null, null]);
   const [activeSlot, setActiveSlot] = useState<number>(0);
 
@@ -1010,28 +1013,57 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
     const targetMedia = movieDetailsModal || activeVodPlayer;
     if (mediaType !== 'series' || !targetMedia) return [];
 
-    if (mediaDetailInfo?.episodes) {
-      const epMap = mediaDetailInfo.episodes;
+    // Unified helper to extract episodes from different possible JSON structures
+    // Some servers use 'episodes', some use 'seasons', some 'series_data'
+    const rawEpisodes = mediaDetailInfo?.episodes || mediaDetailInfo?.seasons || mediaDetailInfo?.series_data || mediaDetailInfo?.data || {};
+    
+    if (rawEpisodes) {
+      // Handle standard Xtream format: { "1": [...], "2": [...] }
+      let epMap: Record<string, any[]> = {};
+      
+      if (typeof rawEpisodes === 'object' && !Array.isArray(rawEpisodes)) {
+        epMap = rawEpisodes;
+      }
+      
+      // If it's an array, convert it to standard map format grouped by season
+      if (Array.isArray(rawEpisodes)) {
+        rawEpisodes.forEach((ep: any) => {
+          // ep might be a season object { season_number: 1, episodes: [...] } 
+          // or a flat episode object { season_num: 1, ... }
+          if (ep.episodes && Array.isArray(ep.episodes)) {
+            const sNum = String(ep.season_number || ep.season || ep.id || '1');
+            epMap[sNum] = ep.episodes;
+          } else {
+            const sNum = String(ep.season_num || ep.season || '1');
+            if (!epMap[sNum]) epMap[sNum] = [];
+            epMap[sNum].push(ep);
+          }
+        });
+      }
+
       const keys = Object.keys(epMap).map(k => parseInt(k, 10)).filter(n => !isNaN(n)).sort((a, b) => a - b);
+      
       if (keys.length > 0) {
         return keys.map(seasonNum => {
-          const rawEps = epMap[String(seasonNum)] || [];
+          const rawEps = ensureArray(epMap[String(seasonNum)]);
           const episodesList = rawEps.map((ep: any, idx: number) => {
-            const epNum = ep.episode_num || idx + 1;
-            const rawStreamId = String(ep.id || ep.stream_id || `${targetMedia.stream_id}-s${seasonNum}-e${epNum}`);
+            const epNum = ep.episode_num || ep.episode || idx + 1;
+            const rawStreamId = String(ep.id || ep.stream_id || ep.stream_url?.split('/').pop()?.split('.')[0] || `${targetMedia.stream_id}-s${seasonNum}-e${epNum}`);
             const cleanStreamId = rawStreamId.replace(/\.(mp4|mkv|avi|mov|webm|ts|m3u8)$/i, '');
             const ext = ep.container_extension || targetMedia.container_extension || 'mp4';
             
-            let epDirectUrl = ep.stream_url || ep.url || targetMedia.url;
-            if (activePlaylist?.type === 'xtream' && activePlaylist.username && activePlaylist.password) {
+            let epDirectUrl = ep.stream_url || ep.url || '';
+            if (!epDirectUrl && activePlaylist?.type === 'xtream' && activePlaylist.username && activePlaylist.password) {
               const baseHost = streamingHost || (activePlaylist.url || '').trim().replace(/\/+$/, '').replace(/\/(player_api|get|index)\.php.*$/i, '').replace(/\/c\/?$/i, '').replace(/\?.*$/, '');
               epDirectUrl = `${baseHost}/series/${activePlaylist.username}/${activePlaylist.password}/${cleanStreamId}.${ext}`;
+            } else if (!epDirectUrl) {
+              epDirectUrl = targetMedia.url;
             }
 
             return {
               stream_id: cleanStreamId,
-              name: `${targetMedia.name} - S${seasonNum} E${epNum}: ${ep.title || (isRtl ? `الحلقة ${epNum}` : `Episode ${epNum}`)}`,
-              stream_icon: ep.info?.movie_image || targetMedia.stream_icon,
+              name: ep.title || ep.name || (isRtl ? `الحلقة ${epNum}` : `Episode ${epNum}`),
+              stream_icon: ep.info?.movie_image || ep.info?.cover_big || ep.cover || ep.icon || targetMedia.stream_icon,
               url: epDirectUrl,
               category_id: targetMedia.category_id,
               category_name: targetMedia.category_name,
@@ -1051,7 +1083,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
     }
 
     return [];
-  }, [mediaType, movieDetailsModal, activeVodPlayer, mediaDetailInfo, isRtl]);
+  }, [mediaType, movieDetailsModal, activeVodPlayer, mediaDetailInfo, isRtl, activePlaylist, streamingHost]);
 
   const [volume, setVolume] = useState<number>(1);
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -1268,6 +1300,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
 
   const [reorderTarget, setReorderTarget] = useState<{ type: 'category' | 'channel', id: string, index: number, name: string } | null>(null);
   const [targetPosInput, setTargetPosInput] = useState('');
+  const [channelActionModal, setChannelActionModal] = useState<{ channel: ParsedChannel; index: number } | null>(null);
 
   const [favorites, setFavorites] = useState<string[]>(() => getLocalFavoriteIds());
 
@@ -1277,13 +1310,65 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
   const [tvFocusedChannelIndex, setTvFocusedChannelIndex] = useState<number>(0);
   const [tvFocusedControlIndex, setTvFocusedControlIndex] = useState<number>(0);
 
+  // Register pushBackHandler in LivePlayer so remote & phone Back button navigates back cleanly
+  useEffect(() => {
+    const unregister = pushBackHandler(() => {
+      if (channelActionModal) { setChannelActionModal(null); return true; }
+      if (showOcr) { setShowOcr(false); return true; }
+      if (showPinModal) { setShowPinModal(false); return true; }
+      if (showRemoteHelp) { setShowRemoteHelp(false); return true; }
+      if (showOverlayChannelDrawer) { setShowOverlayChannelDrawer(false); return true; }
+      if (showAudioMenu || showSubMenu || showQualityMenu) {
+        setShowAudioMenu(false); setShowSubMenu(false); setShowQualityMenu(false);
+        return true;
+      }
+      if (showEpgGrid) { setShowEpgGrid(false); return true; }
+      if (showEpgTimeline) { setShowEpgTimeline(false); return true; }
+      if (movieDetailsModal) { setMovieDetailsModal(null); return true; }
+
+      if (activeVodPlayer) {
+        setActiveVodPlayer(null);
+        return true;
+      }
+
+      if (isFullscreen) {
+        setIsFullscreen(false);
+        if (previousMultiViewMode !== 'none') {
+          setMultiViewMode(previousMultiViewMode);
+          setPreviousMultiViewMode('none');
+        }
+        return true;
+      }
+
+      if (previousMultiViewMode !== 'none') {
+        setMultiViewMode(previousMultiViewMode);
+        setPreviousMultiViewMode('none');
+        return true;
+      }
+
+      if (multiViewMode !== 'none') {
+        setMultiViewMode('none');
+        return true;
+      }
+
+      onBack();
+      return true;
+    });
+
+    return unregister;
+  }, [
+    channelActionModal, showOcr, showPinModal, showRemoteHelp, showOverlayChannelDrawer,
+    showAudioMenu, showSubMenu, showQualityMenu, showEpgGrid, showEpgTimeline,
+    movieDetailsModal, activeVodPlayer, isFullscreen, previousMultiViewMode, multiViewMode, onBack
+  ]);
+
   // 2-Pane D-Pad TV Remote Control Navigation Listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const key = e.key;
       const code = e.keyCode;
       const isBackKey = key === 'Escape' || key === 'Backspace' || key === 'GoBack' || key === 'Back' ||
-                        code === 10009 || code === 461 || code === 27 || code === 8;
+                        code === 4 || code === 10009 || code === 461 || code === 27 || code === 8;
 
       // Don't intercept typing in search / text inputs
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
@@ -1297,6 +1382,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
       // Handle Back button on TV Remote for any open modals / overlays
       if (isBackKey) {
         e.preventDefault();
+        if (channelActionModal) { setChannelActionModal(null); return; }
         if (movieDetailsModal) { setMovieDetailsModal(null); return; }
         if (activeVodPlayer) { setActiveVodPlayer(null); return; }
         if (reorderTarget) { setReorderTarget(null); return; }
@@ -1306,7 +1392,23 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
           setShowAudioMenu(false); setShowSubMenu(false); setShowQualityMenu(false);
           return;
         }
-        if (isFullscreen) { toggleFullscreen(); return; }
+        if (isFullscreen) {
+          toggleFullscreen();
+          if (previousMultiViewMode !== 'none') {
+            setMultiViewMode(previousMultiViewMode);
+            setPreviousMultiViewMode('none');
+          }
+          return;
+        }
+        if (previousMultiViewMode !== 'none') {
+          setMultiViewMode(previousMultiViewMode);
+          setPreviousMultiViewMode('none');
+          return;
+        }
+        if (multiViewMode !== 'none') {
+          setMultiViewMode('none');
+          return;
+        }
         if (showPinModal) { onBack(); return; }
         
         if (tvFocusedPane === 'channels') {
@@ -1339,13 +1441,11 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
             modalFocusables[next]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
           } else if (key === 'ArrowRight' || code === 39) {
             e.preventDefault();
-            const step = isRtl ? -1 : 1;
-            const next = Math.max(0, Math.min(modalFocusables.length - 1, current + step));
+            const next = Math.min(modalFocusables.length - 1, current + 1);
             modalFocusables[next]?.focus();
           } else if (key === 'ArrowLeft' || code === 37) {
             e.preventDefault();
-            const step = isRtl ? 1 : -1;
-            const next = Math.max(0, Math.min(modalFocusables.length - 1, current + step));
+            const next = Math.max(0, current - 1);
             modalFocusables[next]?.focus();
           } else if (key === 'Enter' || code === 13 || key === 'Select' || code === 23) {
             e.preventDefault();
@@ -1409,13 +1509,11 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
            }
         } else if (key === 'ArrowRight' || code === 39) {
            e.preventDefault();
-           const step = isRtl ? -1 : 1;
-           const next = Math.max(0, Math.min(playerFocusables.length - 1, activeIdx + step));
+           const next = Math.min(playerFocusables.length - 1, activeIdx + 1);
            playerFocusables[next]?.focus();
         } else if (key === 'ArrowLeft' || code === 37) {
            e.preventDefault();
-           const step = isRtl ? 1 : -1;
-           const next = Math.max(0, Math.min(playerFocusables.length - 1, activeIdx + step));
+           const next = Math.max(0, activeIdx - 1);
            playerFocusables[next]?.focus();
         } else if (key === 'Enter' || code === 13 || key === 'Select' || code === 23) {
            e.preventDefault();
@@ -1597,7 +1695,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [tvFocusedPane, tvFocusedCatIndex, tvFocusedChannelIndex, isRtl, mediaType, onBack, showPinModal, showEpgGrid, showEpgTimeline, showAudioMenu, showSubMenu, showQualityMenu, reorderTarget, activeVodPlayer, movieDetailsModal, isFullscreen, multiViewMode, showControls]);
+  }, [channelActionModal, tvFocusedPane, tvFocusedCatIndex, tvFocusedChannelIndex, isRtl, mediaType, onBack, showPinModal, showEpgGrid, showEpgTimeline, showAudioMenu, showSubMenu, showQualityMenu, reorderTarget, activeVodPlayer, movieDetailsModal, isFullscreen, multiViewMode, showControls]);
 
   useEffect(() => {
     return subscribeFavorites((next) => setFavorites(next));
@@ -1615,8 +1713,8 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
     } : undefined);
   };
 
-  const moveChannel = (streamId: string, direction: 'up' | 'down', e: React.MouseEvent) => {
-    e.stopPropagation();
+  const moveChannel = (streamId: string, direction: 'up' | 'down', e?: any) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     setChannels(prev => {
       const filteredIdx = filteredChannels.findIndex(c => c.stream_id === streamId);
       if (filteredIdx === -1) return prev;
@@ -1632,6 +1730,14 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
       const temp = copy[idx1];
       copy[idx1] = copy[idx2];
       copy[idx2] = temp;
+
+      // PERSIST ORDER
+      const newOrderIds = copy.map(c => c.stream_id);
+      onUpdateSettings(st => ({
+        ...st,
+        channelOrders: { ...(st.channelOrders || {}), [mediaType]: newOrderIds }
+      }));
+
       return copy;
     });
   };
@@ -2597,6 +2703,42 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
         if (isFullscreen) {
           e.preventDefault();
           toggleFullscreen();
+          if (previousMultiViewMode !== 'none') {
+            setMultiViewMode(previousMultiViewMode);
+            setPreviousMultiViewMode('none');
+          }
+          return;
+        }
+        if (previousMultiViewMode !== 'none') {
+          e.preventDefault();
+          setMultiViewMode(previousMultiViewMode);
+          setPreviousMultiViewMode('none');
+          return;
+        }
+        e.preventDefault();
+        onBack();
+        return;
+      }
+
+      if (key === 'arrowdown' || e.keyCode === 20 || e.keyCode === 40) {
+        if (isFullscreen && !showControls) {
+          e.preventDefault();
+          setShowControls(true);
+          triggerControlsVisibility();
+          // Focus the first control button
+          setTimeout(() => {
+            const firstCtrl = document.querySelector('[data-tv-pane="player-controls"]') as HTMLElement;
+            if (firstCtrl) firstCtrl.focus();
+          }, 100);
+          return;
+        }
+      }
+
+      if (key === 'arrowup' || e.keyCode === 19 || e.keyCode === 38) {
+        if (isFullscreen && showControls) {
+          // If we press UP while controls are shown, hide them
+          e.preventDefault();
+          setShowControls(false);
           return;
         }
       }
@@ -2614,15 +2756,27 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
       } else if (key === 'b' || e.code === 'F4') {
         e.preventDefault();
         if (selectedChannel) toggleFavorite(selectedChannel.stream_id);
-      } else if (key === 'arrowup' || key === 'channelup' || key === 'pageup' || e.keyCode === 166 || e.keyCode === 33) {
-        if (isFullscreen || (document.activeElement?.tagName !== 'BUTTON' && !document.activeElement?.closest('[data-tv-pane]'))) {
-          e.preventDefault();
-          switchChannelByOffset(-1);
-        }
-      } else if (key === 'arrowdown' || key === 'channeldown' || key === 'pagedown' || e.keyCode === 167 || e.keyCode === 34) {
-        if (isFullscreen || (document.activeElement?.tagName !== 'BUTTON' && !document.activeElement?.closest('[data-tv-pane]'))) {
+      } else if (key === 'channelup' || key === 'pageup' || e.keyCode === 166 || e.keyCode === 33) {
+        e.preventDefault();
+        switchChannelByOffset(1);
+      } else if (key === 'channeldown' || key === 'pagedown' || e.keyCode === 167 || e.keyCode === 34) {
+        e.preventDefault();
+        switchChannelByOffset(-1);
+      } else if (key === 'arrowright' || e.keyCode === 39 || e.keyCode === 22) {
+        // Arrow Right switches to NEXT channel in player/fullscreen
+        const isInteractingWithControls = !!document.activeElement?.closest('[data-tv-pane="player-controls"]');
+        const isInteractingWithSidebar = !!document.activeElement?.closest('[data-tv-pane="channels"]') || !!document.activeElement?.closest('[data-tv-pane="categories"]');
+        if (!isInteractingWithSidebar && (isFullscreen || !isInteractingWithControls || document.activeElement?.getAttribute('data-tv-pane') === 'player')) {
           e.preventDefault();
           switchChannelByOffset(1);
+        }
+      } else if (key === 'arrowleft' || e.keyCode === 37 || e.keyCode === 21) {
+        // Arrow Left switches to PREVIOUS channel in player/fullscreen
+        const isInteractingWithControls = !!document.activeElement?.closest('[data-tv-pane="player-controls"]');
+        const isInteractingWithSidebar = !!document.activeElement?.closest('[data-tv-pane="channels"]') || !!document.activeElement?.closest('[data-tv-pane="categories"]');
+        if (!isInteractingWithSidebar && (isFullscreen || !isInteractingWithControls || document.activeElement?.getAttribute('data-tv-pane') === 'player')) {
+          e.preventDefault();
+          switchChannelByOffset(-1);
         }
       } else if (key === 'f') {
         e.preventDefault();
@@ -2701,11 +2855,16 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
     setShowEpgTimeline(false);
   };
 
-  const fetchMediaDetails = async (id: string, type: 'movie' | 'series', p: Playlist) => {
+  const fetchMediaDetails = async (id: string, type: 'movie' | 'series', p: Playlist | null) => {
+    if (!p) {
+      console.warn(`[MediaDetails] Cannot fetch ${type} details: Playlist is null`);
+      return null;
+    }
+    console.log(`[MediaDetails] Fetching ${type} ID: ${id}`);
     try {
       let baseUrl = p.url || '';
       try {
-          const urlObj = new URL(baseUrl);
+          const urlObj = new URL(baseUrl.startsWith('http') ? baseUrl : 'http://' + baseUrl);
           baseUrl = `${urlObj.protocol}//${urlObj.host}`;
       } catch (e) {
           baseUrl = baseUrl.replace(/\/+$/, '');
@@ -2718,9 +2877,17 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
         action: action,
         [type === 'movie' ? 'vod_id' : 'series_id']: id
       });
+      console.log(`[MediaDetails] Proxy URL: ${fetchUrl}`);
       const res = await axios.get(fetchUrl);
+      
+      // Extensive logging for debugging
+      if (!res.data || (typeof res.data === 'object' && Object.keys(res.data).length === 0)) {
+        console.warn(`[MediaDetails] Received empty response for ${type} ID ${id}`);
+      }
+      
       return res.data;
     } catch (e) {
+      console.error(`[MediaDetails] Error fetching ${type} ID ${id}:`, e);
       return null;
     }
   };
@@ -2956,20 +3123,31 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
               isRtl={isRtl}
               mediaType={mediaType}
               onSelectChannel={(ch: ParsedChannel) => {
-                if (selectedChannel?.stream_id === ch.stream_id) return;
+                if (multiViewMode === 'none' && selectedChannel?.stream_id === ch.stream_id) return;
+                if (multiViewMode !== 'none' && multiChannels[activeSlot]?.stream_id === ch.stream_id) return;
                 addToRecents(ch);
-                setSelectedChannel(ch);
                 if (mediaType === 'series') {
-                  setSelectedSeriesDetailsItem(ch);
+                  setActivePlayingMovie(ch);
+                  setMovieDetailsModal(ch);
+                  setDetailLoading(true);
+                  setMediaDetailInfo(null);
+                  if (activePlaylist) {
+                    fetchMediaDetails(ch.stream_id, mediaType, activePlaylist).then(info => {
+                      setMediaDetailInfo(info);
+                      setDetailLoading(false);
+                    });
+                  }
                 } else if (mediaType === 'movie') {
                   setActivePlayingMovie(ch);
                   setMovieDetailsModal(ch);
                   setDetailLoading(true);
                   setMediaDetailInfo(null);
-                  fetchMediaDetails(ch.stream_id, mediaType, activePlaylist!).then(info => {
-                    setMediaDetailInfo(info);
-                    setDetailLoading(false);
-                  });
+                  if (activePlaylist) {
+                    fetchMediaDetails(ch.stream_id, mediaType, activePlaylist).then(info => {
+                      setMediaDetailInfo(info);
+                      setDetailLoading(false);
+                    });
+                  }
                 } else {
                   if (multiViewMode !== 'none') {
                     setMultiChannels(prev => {
@@ -2977,6 +3155,9 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                       next[activeSlot] = ch;
                       return next;
                     });
+                    if (activeSlot === 0) setSelectedChannel(ch);
+                  } else {
+                    setSelectedChannel(ch);
                   }
                 }
               }}
@@ -2987,6 +3168,9 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
 
               onToggleFavorite={toggleFavorite}
               onMoveChannel={(streamId: string, direction: 'up' | 'down', e: React.MouseEvent) => moveChannel(streamId, direction, e)}
+              onChannelActionMenu={(ch: ParsedChannel, idx: number) => {
+                setChannelActionModal({ channel: ch, index: idx });
+              }}
               onReorderChannel={(item: any) => {
                 setReorderTarget({
                   type: 'channel',
@@ -3104,12 +3288,25 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                     e.stopPropagation();
                     if (isActive && multiViewMode === 'none') {
                       toggleFullscreen();
+                    } else if (isActive && multiViewMode !== 'none') {
+                      // Maximize active slot in multi-view
+                      setPreviousMultiViewMode(multiViewMode);
+                      setMultiViewMode('none');
+                      setSelectedChannel(slotChannel);
                     } else {
                       setActiveSlot(slotIdx);
                       triggerControlsVisibility();
                     }
                   }}
-                  onDoubleClick={toggleFullscreen}
+                  onDoubleClick={() => {
+                    if (multiViewMode !== 'none') {
+                      setPreviousMultiViewMode(multiViewMode);
+                      setMultiViewMode('none');
+                      setSelectedChannel(slotChannel);
+                    } else {
+                      toggleFullscreen();
+                    }
+                  }}
                   onRegisterVideo={handleRegisterVideo}
                   onRegisterHls={handleRegisterHls}
                   onTracksUpdate={handleTracksUpdate}
@@ -3313,7 +3510,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
 
             {/* SATELLITE RECEIVER OSD INFOBAR (Restored fully with Signal/Quality & Color Keys) */}
             <div className={`absolute bottom-1.5 left-1.5 right-1.5 sm:bottom-3 sm:left-3 sm:right-3 p-1.5 sm:p-2 bg-zinc-950/96 border border-gold/30 backdrop-blur-3xl rounded-lg sm:rounded-xl flex flex-col gap-1 sm:gap-1.5 z-50 shadow-[0_15px_50px_rgba(0,0,0,0.95)] transition-all duration-300 ${
-              (isFullscreen && showControls)
+              showControls
                 ? 'opacity-100 translate-y-0 pointer-events-auto' 
                 : 'opacity-0 translate-y-6 pointer-events-none'
             }`}>
@@ -3495,24 +3692,30 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-3">
-                  {/* Dedicated Channel Flipping Buttons (CH- / CH+) */}
-                  <div className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-gold/30 shadow-inner">
+                  {/* Dedicated Channel Flipping Buttons (Left: CH- / Right: CH+) */}
+                  <div dir="ltr" className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-gold/30 shadow-inner">
                     <button 
+                      data-tv-focusable="true"
+                      data-tv-pane="player-controls"
+                      tabIndex={0}
                       onClick={(e) => { e.stopPropagation(); switchChannelByOffset(-1); }}
-                      className="flex items-center gap-1 px-2.5 py-1 text-zinc-200 hover:text-gold hover:bg-white/10 rounded-lg text-xs font-bold transition-all"
-                      title={isRtl ? 'القناة السابقة (CH-)' : 'Previous Channel (CH-)'}
+                      className="flex items-center gap-1 px-2.5 py-1 text-zinc-200 hover:text-gold hover:bg-white/10 rounded-lg text-xs font-bold transition-all focus:ring-2 focus:ring-gold outline-none"
+                      title={isRtl ? 'القناة السابقة (يسار - CH-)' : 'Previous Channel (Left - CH-)'}
                     >
-                      <ChevronUp size={16} className="text-gold" />
+                      <ChevronLeft size={16} className="text-gold" />
                       <span className="font-mono text-[11px] hidden sm:inline">CH-</span>
                     </button>
                     <div className="w-[1px] h-4 bg-white/10" />
                     <button 
+                      data-tv-focusable="true"
+                      data-tv-pane="player-controls"
+                      tabIndex={0}
                       onClick={(e) => { e.stopPropagation(); switchChannelByOffset(1); }}
-                      className="flex items-center gap-1 px-2.5 py-1 text-zinc-200 hover:text-gold hover:bg-white/10 rounded-lg text-xs font-bold transition-all"
-                      title={isRtl ? 'القناة التالية (CH+)' : 'Next Channel (CH+)'}
+                      className="flex items-center gap-1 px-2.5 py-1 text-zinc-200 hover:text-gold hover:bg-white/10 rounded-lg text-xs font-bold transition-all focus:ring-2 focus:ring-gold outline-none"
+                      title={isRtl ? 'القناة التالية (يمين - CH+)' : 'Next Channel (Right - CH+)'}
                     >
                       <span className="font-mono text-[11px] hidden sm:inline">CH+</span>
-                      <ChevronDown size={16} className="text-gold" />
+                      <ChevronRight size={16} className="text-gold" />
                     </button>
                   </div>
 
@@ -3613,9 +3816,9 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                 {/* Details & Episode Selector */}
                 <div className="flex-1 flex flex-col gap-3 min-w-0">
                   {(() => {
-                    const plot = mediaDetailInfo?.info?.plot || mediaDetailInfo?.info?.description;
-                    const isPlaceholder = plot && (plot.includes('لا تتوفر تفاصيل') || plot.includes('No information') || plot.includes('No description'));
-                    if (!plot || isPlaceholder) return null;
+                    const info = mediaDetailInfo?.info || mediaDetailInfo?.movie_data || mediaDetailInfo?.data || {};
+                    const plot = info.plot || info.description || info.plot_en || info.plot_ar || info.notes || info.story || info.o_history || '';
+                    if (!plot) return null;
                     return (
                       <div>
                         <h3 className="text-[11px] sm:text-xs font-black uppercase text-gold tracking-widest mb-1">
@@ -3795,6 +3998,159 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                   title={isRtl ? 'المفضلة' : 'Favorite'}
                 >
                   <Star size={18} className={favorites.includes(movieDetailsModal.stream_id) ? 'fill-black' : ''} />
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Channel Long-Press Action Menu Modal */}
+      <AnimatePresence>
+        {channelActionModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md select-none"
+            onClick={() => setChannelActionModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.92, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className={`w-full max-w-sm bg-zinc-950 border-2 border-gold/60 rounded-3xl p-5 shadow-2xl flex flex-col gap-3 ${
+                isRtl ? 'font-cairo text-right' : 'text-left'
+              }`}
+            >
+              <div className={`flex items-center justify-between pb-3 border-b border-white/10 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                <div className={`flex items-center gap-2.5 min-w-0 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  <div className="w-10 h-10 rounded-xl bg-black/80 border border-gold/40 flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                    {channelActionModal.channel.stream_icon ? (
+                      <img
+                        src={channelActionModal.channel.stream_icon}
+                        className="w-full h-full object-contain"
+                        alt=""
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                      />
+                    ) : (
+                      <Tv size={20} className="text-gold" />
+                    )}
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-mono font-bold text-gold">#{channelActionModal.index + 1}</span>
+                    <h3 className="text-sm font-black text-white truncate max-w-[200px]" title={channelActionModal.channel.name}>
+                      {channelActionModal.channel.name}
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  data-tv-focusable="true"
+                  onClick={() => setChannelActionModal(null)}
+                  className="p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-all focus:ring-2 focus:ring-gold outline-none"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <button
+                  data-tv-focusable="true"
+                  autoFocus
+                  onClick={() => {
+                    toggleFavorite(channelActionModal.channel.stream_id);
+                    setChannelActionModal(null);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border text-xs font-bold transition-all focus:ring-4 focus:ring-gold outline-none ${
+                    favorites.includes(channelActionModal.channel.stream_id)
+                      ? 'bg-red-500/15 border-red-500/40 text-red-300 hover:bg-red-500/25'
+                      : 'bg-gold/15 border-gold/40 text-gold hover:bg-gold/25'
+                  } ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}
+                >
+                  <Star
+                    size={16}
+                    className={favorites.includes(channelActionModal.channel.stream_id) ? 'fill-red-400 text-red-400' : 'fill-gold text-gold'}
+                  />
+                  <span>
+                    {favorites.includes(channelActionModal.channel.stream_id)
+                      ? (isRtl ? 'إزالة من المفضلة' : 'Remove from Favorites')
+                      : (isRtl ? 'إضافة إلى المفضلة' : 'Add to Favorites')}
+                  </span>
+                </button>
+
+                <button
+                  data-tv-focusable="true"
+                  onClick={() => {
+                    moveChannel(channelActionModal.channel.stream_id, 'up');
+                    setChannelActionModal(null);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 bg-white/5 border border-white/10 hover:border-gold/50 rounded-xl text-xs font-bold text-zinc-200 hover:text-white transition-all focus:ring-4 focus:ring-gold outline-none ${
+                    isRtl ? 'flex-row-reverse text-right' : 'text-left'
+                  }`}
+                >
+                  <ArrowUp size={16} className="text-gold" />
+                  <span>{isRtl ? 'رفع القناة لأعلى (خطوة واحدة)' : 'Move Up (1 Step)'}</span>
+                </button>
+
+                <button
+                  data-tv-focusable="true"
+                  onClick={() => {
+                    moveChannel(channelActionModal.channel.stream_id, 'down');
+                    setChannelActionModal(null);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 bg-white/5 border border-white/10 hover:border-gold/50 rounded-xl text-xs font-bold text-zinc-200 hover:text-white transition-all focus:ring-4 focus:ring-gold outline-none ${
+                    isRtl ? 'flex-row-reverse text-right' : 'text-left'
+                  }`}
+                >
+                  <ArrowDown size={16} className="text-gold" />
+                  <span>{isRtl ? 'تنزيل القناة لأسفل (خطوة واحدة)' : 'Move Down (1 Step)'}</span>
+                </button>
+
+                <button
+                  data-tv-focusable="true"
+                  onClick={() => {
+                    const ch = channelActionModal.channel;
+                    const idx = channelActionModal.index;
+                    setChannelActionModal(null);
+                    setReorderTarget({
+                      type: 'channel',
+                      id: ch.stream_id,
+                      index: idx,
+                      name: ch.name
+                    });
+                    setTargetPosInput(String(idx + 1));
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 bg-white/5 border border-white/10 hover:border-gold/50 rounded-xl text-xs font-bold text-zinc-200 hover:text-white transition-all focus:ring-4 focus:ring-gold outline-none ${
+                    isRtl ? 'flex-row-reverse text-right' : 'text-left'
+                  }`}
+                >
+                  <Move size={16} className="text-gold" />
+                  <span>{isRtl ? 'تحديد رقم ترتيب مخصص للقناة' : 'Set Custom Position Number'}</span>
+                </button>
+
+                <button
+                  data-tv-focusable="true"
+                  onClick={() => {
+                    setSelectedChannel(channelActionModal.channel);
+                    setChannelActionModal(null);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 bg-gold text-black rounded-xl text-xs font-black transition-all hover:bg-gold/90 focus:ring-4 focus:ring-white outline-none ${
+                    isRtl ? 'flex-row-reverse text-right' : 'text-left'
+                  }`}
+                >
+                  <Play size={16} className="fill-black" />
+                  <span>{isRtl ? 'تشغيل القناة' : 'Play Channel'}</span>
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-white/10 flex justify-end">
+                <button
+                  data-tv-focusable="true"
+                  onClick={() => setChannelActionModal(null)}
+                  className="px-4 py-1.5 bg-white/10 hover:bg-white/20 text-zinc-300 hover:text-white rounded-lg text-xs font-bold transition-all focus:ring-2 focus:ring-gold outline-none"
+                >
+                  {isRtl ? 'إغلاق' : 'Close'}
                 </button>
               </div>
             </motion.div>

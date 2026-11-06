@@ -195,6 +195,10 @@ export const xtreamFetch = async (
       }
 
       const ok = response.ok && !isHtml && data !== null;
+      
+      if (!ok && (status === 401 || status === 404)) {
+        return { data, rawList: [], status, ok, error: `Upstream error ${status}: ${isHtml ? 'Invalid URL/Auth' : JSON.stringify(data)}` };
+      }
 
       // Robust extraction of the list from common Xtream wrappers
       let rawList: any[] = [];

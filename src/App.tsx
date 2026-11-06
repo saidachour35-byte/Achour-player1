@@ -11,6 +11,7 @@ import { applyRoyalTheme } from './utils/themeManager';
 import { DEFAULT_PLAYERS } from './components/SettingsView';
 import { runStorageCleanup } from './utils/storageCleanup';
 import { parseTVKeyEvent, executeBackHandler, isTextInput } from './utils/tvNavigation';
+import { isFireTV } from './utils/platform';
 
 const DEFAULT_SETTINGS: AppSettings = {
   language: 'ar',
@@ -54,19 +55,30 @@ export default function App() {
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
   const [settings, setSettings] = useState<AppSettings>(() => {
     const saved = localStorage.getItem('achour_settings_v2');
-    if (!saved) return DEFAULT_SETTINGS;
+    let initial = DEFAULT_SETTINGS;
+    
+    // Auto-detect Fire TV for better defaults
+    if (isFireTV()) {
+      initial = {
+        ...initial,
+        selectedPlayer: 'Fire TV Player (مشغل فاير تي في)',
+        useExternalPlayer: false // Use internal player configured for Fire TV by default
+      };
+    }
+
+    if (!saved) return initial;
     try {
       const parsed = JSON.parse(saved);
       return {
-        ...DEFAULT_SETTINGS,
+        ...initial,
         ...parsed,
         searchHistory: {
-          ...DEFAULT_SETTINGS.searchHistory,
+          ...initial.searchHistory,
           ...(parsed.searchHistory || {})
         }
       };
     } catch (e) {
-      return DEFAULT_SETTINGS;
+      return initial;
     }
   });
 

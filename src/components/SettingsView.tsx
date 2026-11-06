@@ -20,7 +20,7 @@ import {
   ROYAL_THEMES, ICON_3D_STYLES, APP_BACKGROUNDS, DASHBOARD_LAYOUTS,
   applyRoyalTheme, RoyalTheme, Icon3DStyle, AppBackground 
 } from '../utils/themeManager';
-import { pushBackHandler, navigateSpatial, parseTVKeyEvent } from '../utils/tvNavigation';
+import { pushBackHandler, navigateSpatial, parseTVKeyEvent, isTextInput } from '../utils/tvNavigation';
 
 
 interface SettingsViewProps {
@@ -55,15 +55,22 @@ type SettingsSubView =
 export const DEFAULT_PLAYERS = [
   'Achour Player (مدمج - Native)',
   'Fire TV Player (مشغل فاير تي في)',
-  'ExoPlayer',
   'VLC Media Player',
   'MX Player Pro',
+  'MX Player',
+  'nPlayer',
   'MPV Player',
+  'Kodi',
   'Nova Video Player',
   'Just Player',
+  'Wiseplay',
   'IJK Player',
   'PotPlayer',
-  'KMPlayer'
+  'KMPlayer',
+  'BubbleUPnP',
+  'Wuffy Player',
+  'Perfect Player',
+  'XPlayer'
 ];
 
 export default function SettingsView({ onBack, settings, onUpdateSettings, userId, onTriggerSplash }: SettingsViewProps) {
@@ -110,6 +117,10 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
       
       if (action === 'BACK') {
         e.preventDefault();
+        if (isTextInput(document.activeElement)) {
+          (document.activeElement as HTMLElement).blur();
+          return;
+        }
         if (subView !== 'main') {
           setSubView('main');
         } else {
@@ -118,8 +129,21 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
         return;
       }
 
+      if (isTextInput(document.activeElement)) {
+        if (action === 'UP' || action === 'DOWN') {
+          e.preventDefault();
+          const dir = action === 'UP' ? 'up' : 'down';
+          navigateSpatial(dir, document.body, null, isRtl);
+          return;
+        }
+        // In text inputs, let LEFT/RIGHT move the cursor and Enter submit
+        if (action === 'LEFT' || action === 'RIGHT') {
+          return;
+        }
+      }
+
       if (action === 'SELECT') {
-        if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body) {
+        if (document.activeElement instanceof HTMLElement && document.activeElement !== document.body && !isTextInput(document.activeElement)) {
           e.preventDefault();
           (document.activeElement as HTMLElement).click();
         }
@@ -799,27 +823,29 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
   if (subView === 'time') {
     return (
       <SubViewContainer title={t('time_format')} onBack={() => setSubView('main')} isRtl={isRtl}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { format: '12h' as TimeFormat, label: isRtl ? 'نظام 12 ساعة (AM / PM)' : '12-Hour Format (AM/PM)', preview: previewTime12 },
             { format: '24h' as TimeFormat, label: isRtl ? 'نظام 24 ساعة (00:00 - 23:59)' : '24-Hour Military Format', preview: previewTime24 },
           ].map((item) => (
             <button
               key={item.format}
+              data-tv-focusable="true"
+              tabIndex={0}
               onClick={() => handleTimeFormatSelect(item.format)}
-              className={`flex items-center justify-between p-5 glass-card rounded-2xl transition-all border ${
+              className={`flex items-center justify-between p-3.5 glass-card rounded-xl transition-all border focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
                 settings.timeFormat === item.format 
                   ? 'border-gold bg-gold/15 shadow-[0_0_20px_rgba(212,175,55,0.2)]' 
                   : 'border-white/5 hover:bg-white/5'
               }`}
             >
               <div className={isRtl ? 'text-right' : 'text-left'}>
-                <span className="text-sm font-black uppercase tracking-wider block text-white">{item.label}</span>
-                <span className="text-xs font-mono text-gold mt-1 block">
+                <span className="text-[13px] font-black uppercase tracking-wider block text-white">{item.label}</span>
+                <span className="text-[10px] font-mono text-gold mt-0.5 block">
                   {isRtl ? 'المعاينة الحية:' : 'Live:'} {item.preview}
                 </span>
               </div>
-              {settings.timeFormat === item.format && <Check className="text-gold" size={20} />}
+              {settings.timeFormat === item.format && <Check className="text-gold" size={16} />}
             </button>
           ))}
         </div>
@@ -870,24 +896,24 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
 
     return (
       <SubViewContainer title={isRtl ? 'حجم الأيقونات العام' : 'Global Icon Size'} onBack={() => setSubView('main')} isRtl={isRtl}>
-        <div className="space-y-6">
-          <div className="p-4 rounded-2xl bg-gold/10 border border-gold/30 flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h2 className="text-sm font-black text-white uppercase tracking-wider">
+        <div className="space-y-4">
+          <div className="p-3 rounded-xl bg-gold/10 border border-gold/30 flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <h2 className="text-xs font-black text-white uppercase tracking-wider">
                 {isRtl ? 'التحكم الشامل في أبعاد ومقاسات الأيقونات والبطاقات' : 'Universal Icon & Card Proportional Scaling'}
               </h2>
-              <p className="text-xs text-zinc-300">
+              <p className="text-[10px] text-zinc-300">
                 {isRtl
-                  ? 'يتم تطبيق الحجم المختار فورياً وتلقائياً على جميع تصاميم الواجهات الـ 20 وشاشات التطبيق دون تشويه اللوجو الأصلي.'
-                  : 'Instantly applies proportional scaling across all 20 interface designs without distorting the original logo.'}
+                  ? 'يتم تطبيق الحجم المختار فورياً وتلقائياً على جميع تصاميم الواجهات الـ 20.'
+                  : 'Instantly applies proportional scaling across all 20 interface designs.'}
               </p>
             </div>
-            <span className="px-3 py-1 bg-gold text-black font-black text-xs rounded-xl font-mono shrink-0">
+            <span className="px-2 py-0.5 bg-gold text-black font-black text-[10px] rounded-lg font-mono shrink-0">
               {settings.iconScale || 'medium'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {scaleOptions.map((opt) => {
               const isActive = (settings.iconScale || 'medium') === opt.id;
               return (
@@ -898,36 +924,35 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                   onClick={() => {
                     updateSetting('iconScale', opt.id);
                   }}
-                  className={`p-4 rounded-2xl glass-card border-2 flex flex-col justify-between text-left rtl:text-right transition-all group focus:outline-none focus:ring-4 focus:ring-gold ${
+                  className={`p-3 rounded-xl glass-card border-2 flex flex-col justify-between text-left rtl:text-right transition-all group focus:outline-none focus:ring-4 focus:ring-gold ${
                     isActive 
                       ? 'border-gold bg-gold/15 shadow-[0_0_20px_rgba(212,175,55,0.25)]' 
                       : 'border-white/10 hover:border-gold/50 bg-black/50'
                   }`}
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-white/10 text-gold border border-white/10">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="px-1.5 py-0.5 rounded-md text-[9px] font-mono font-bold bg-white/10 text-gold border border-white/10">
                         {opt.badge}
                       </span>
-                      {isActive && <Check className="text-gold" size={18} />}
+                      {isActive && <Check className="text-gold" size={14} />}
                     </div>
-                    <h3 className="text-sm font-black text-white group-hover:text-gold uppercase tracking-wider">
+                    <h3 className="text-xs font-black text-white group-hover:text-gold uppercase tracking-wider">
                       {opt.label}
                     </h3>
-                    <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    <p className="text-[10px] text-zinc-400 mt-0.5 leading-tight">
                       {opt.desc}
                     </p>
                   </div>
 
-                  {/* Live Mini Preview */}
-                  <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-center">
+                  <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-center">
                     <div 
-                      className={`rounded-xl border border-gold/40 bg-black/80 flex flex-col items-center justify-center transition-all ${
-                        opt.id === 'small' ? 'w-16 h-18 p-1.5' : opt.id === 'large' ? 'w-22 h-26 p-2.5' : 'w-18 h-22 p-2'
+                      className={`rounded-lg border border-gold/40 bg-black/80 flex flex-col items-center justify-center transition-all ${
+                        opt.id === 'small' ? 'w-12 h-14 p-1' : opt.id === 'large' ? 'w-18 h-22 p-2' : 'w-14 h-18 p-1.5'
                       }`}
                     >
-                      <Sparkles className={`text-gold mb-1 ${opt.id === 'small' ? 'w-4 h-4' : opt.id === 'large' ? 'w-6 h-6' : 'w-5 h-5'}`} />
-                      <span className="text-[9px] font-bold text-white uppercase">{opt.id}</span>
+                      <Sparkles className={`text-gold mb-0.5 ${opt.id === 'small' ? 'w-3 h-3' : opt.id === 'large' ? 'w-5 h-5' : 'w-4 h-4'}`} />
+                      <span className="text-[8px] font-bold text-white uppercase">{opt.id}</span>
                     </div>
                   </div>
                 </button>
@@ -935,15 +960,15 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
             })}
           </div>
 
-          <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
-            <span className="text-xs text-zinc-400">
+          <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 flex items-center justify-between">
+            <span className="text-[10px] text-zinc-400">
               {isRtl ? 'يتم حفظ الإعدادات تلقائياً وتثبيتها عند إعادة فتح التطبيق.' : 'Settings are saved automatically and remain upon restart.'}
             </span>
             <button
               data-tv-focusable="true"
               tabIndex={0}
               onClick={() => setSubView('main')}
-              className="px-4 py-2 bg-gold hover:bg-gold/80 text-black text-xs font-black uppercase rounded-xl transition-all"
+              className="px-3 py-1.5 bg-gold hover:bg-gold/80 text-black text-[10px] font-black uppercase rounded-lg transition-all"
             >
               {isRtl ? 'تم وحفظ' : 'Done & Return'}
             </button>
@@ -995,21 +1020,23 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                   data-tv-focusable="true"
                   tabIndex={0}
                   onClick={() => updateSetting('zoomScale', preset.val)}
-                  className={`p-4 rounded-2xl glass-card border-2 flex items-center justify-between text-left rtl:text-right transition-all group focus:outline-none focus:ring-4 focus:ring-gold ${
+                  className={`p-3 rounded-xl glass-card border transition-all group focus:outline-none focus:ring-4 focus:ring-gold ${
                     isActive
                       ? 'border-gold bg-gold/15 shadow-[0_0_20px_rgba(212,175,55,0.25)]'
-                      : 'border-white/10 hover:border-gold/50 bg-black/50'
+                      : 'border-white/5 hover:border-gold/50 bg-black/50'
                   }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-white/10 text-gold border border-white/10">
-                      {preset.val}%
-                    </span>
-                    <span className="text-xs font-black text-white group-hover:text-gold uppercase tracking-wider">
-                      {preset.label}
-                    </span>
+                  <div className={`flex items-center justify-between ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                      <span className="px-1.5 py-0.5 rounded-lg text-[10px] font-mono font-bold bg-white/10 text-gold border border-white/10">
+                        {preset.val}%
+                      </span>
+                      <span className="text-[10px] font-black text-white group-hover:text-gold uppercase tracking-wider">
+                        {preset.label}
+                      </span>
+                    </div>
+                    {isActive && <Check className="text-gold shrink-0" size={14} />}
                   </div>
-                  {isActive && <Check className="text-gold shrink-0" size={18} />}
                 </button>
               );
             })}
@@ -1063,183 +1090,191 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
   if (subView === 'players') {
     return (
       <SubViewContainer title={t('external_player')} onBack={() => setSubView('main')} isRtl={isRtl}>
-        <div className="space-y-6">
-          <div className={`p-4 rounded-2xl bg-gold/10 border border-gold/30 flex items-center justify-between gap-4 ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}>
-            <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-              <div className="p-2.5 rounded-xl bg-gold/20 text-gold">
-                <MonitorPlay size={24} />
+        <div className="space-y-4">
+          <div className={`p-3 rounded-xl bg-gold/10 border border-gold/30 flex items-center justify-between gap-3 ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}>
+            <div className={`flex items-center gap-2.5 ${isRtl ? 'flex-row-reverse' : ''}`}>
+              <div className="p-2 rounded-lg bg-gold/20 text-gold">
+                <MonitorPlay size={20} />
               </div>
               <div>
-                <h2 className="text-sm font-black text-white uppercase tracking-wider">
-                  {isRtl ? 'قائمة المشغلات الـ 10 المدعومة' : 'Supported Media Players (10 Players)'}
+                <h2 className="text-xs font-black text-white uppercase tracking-wider">
+                  {isRtl ? 'قائمة المشغلات الخارجية والمدمجة' : 'External & Internal Players'}
                 </h2>
-                <p className="text-xs text-zinc-400 mt-0.5">
-                  {isRtl ? 'اختر المشغل المفضل لديك لتشغيل القنوات والأفلام، أو أضف مشغلك الخارجي المفضل أدناه' : 'Select your playback engine or add a custom external player below'}
+                <p className="text-[10px] text-zinc-400 mt-0.5">
+                  {isRtl ? 'اختر المشغل المفضل لديك (VLC, MX Player, إلخ) لتشغيل القنوات والأفلام مباشرة' : 'Select your preferred player (VLC, MX Player, etc.) or add a custom app'}
                 </p>
               </div>
             </div>
-            <span className="px-3 py-1 bg-gold text-black font-black text-xs rounded-xl font-mono">
+            <span className="px-2.5 py-0.5 bg-gold text-black font-black text-[10px] rounded-lg font-mono">
               {allPlayers.length} {isRtl ? 'مشغلات' : 'Players'}
             </span>
           </div>
 
           {/* Playback Mode Selector: Internal Engine vs External APK */}
-          <div className="p-4 rounded-2xl bg-black/60 border border-gold/40 space-y-3">
-            <h3 className="text-xs font-black uppercase text-gold tracking-wider">
+          <div className="p-3 rounded-xl bg-black/60 border border-gold/40 space-y-2">
+            <h3 className="text-[11px] font-black uppercase text-gold tracking-wider">
               {isRtl ? 'نمط وطريقة التشغيل الحالية' : 'Current Playback Mode'}
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
+                data-tv-focusable="true"
+                tabIndex={0}
                 onClick={() => updateSetting('useExternalPlayer', false)}
-                className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-between ${
+                className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-between outline-none focus:ring-4 focus:ring-gold ${
                   !settings.useExternalPlayer
                     ? 'bg-gold text-black border-gold shadow-[0_0_15px_rgba(212,175,55,0.3)] font-black'
                     : 'bg-white/5 border-white/10 text-zinc-300 hover:border-gold/40'
                 }`}
               >
                 <span>{isRtl ? '1. مشغل مدمج داخل التطبيق (Internal Engine)' : '1. Internal App Engine'}</span>
-                {!settings.useExternalPlayer && <Check size={16} />}
+                {!settings.useExternalPlayer && <Check size={14} />}
               </button>
 
               <button
                 type="button"
+                data-tv-focusable="true"
+                tabIndex={0}
                 onClick={() => updateSetting('useExternalPlayer', true)}
-                className={`p-3 rounded-xl border text-xs font-bold transition-all flex items-center justify-between ${
+                className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-between outline-none focus:ring-4 focus:ring-gold ${
                   settings.useExternalPlayer
                     ? 'bg-gold text-black border-gold shadow-[0_0_15px_rgba(212,175,55,0.3)] font-black'
                     : 'bg-white/5 border-white/10 text-zinc-300 hover:border-gold/40'
                 }`}
               >
-                <span>{isRtl ? '2. فتح عبر تطبيق أندرويد خارجي (External APK)' : '2. External Android App'}</span>
-                {settings.useExternalPlayer && <Check size={16} />}
+                <span>{isRtl ? '2. فتح عبر تطبيق خارجي مثبت (External APK)' : '2. External Installed App'}</span>
+                {settings.useExternalPlayer && <Check size={14} />}
               </button>
             </div>
-            <p className="text-[11px] text-zinc-400 leading-normal">
+            <p className="text-[10px] text-zinc-400 leading-tight">
               {settings.useExternalPlayer
-                ? (isRtl ? 'عند الضغط على القناة سيتم فتح تطبيق أندرويد المستقل المختار (مثل VLC أو MX Player) مباشرة عبر الروابط المباشرة.' : 'Selecting a channel will launch the external Android app (e.g. VLC or MX Player) directly.')
-                : (isRtl ? 'عند الضغط على القناة تعمل القناة مباشرة داخل شاشة التطبيق المدمجة باستخدام محرك التفكيك المختار أدناه.' : 'Channels will play directly inside the app using the selected internal engine parameters.')}
+                ? (isRtl ? 'عند الضغط على القناة أو الفيلم سيتم فتح التطبيق الخارجي المختار (مثل VLC أو MX Player) مباشرة على جهازك.' : 'Selecting a media item will launch the selected external app (e.g. VLC or MX Player) directly on your device.')
+                : (isRtl ? 'القنوات والأفلام تعمل مباشرة داخل شاشة التطبيق المدمجة مع كافة خيارات الدليل والترجمة والصوت.' : 'Media plays directly inside the app with full OSD info, subtitles, and audio track controls.')}
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 max-h-[50vh] overflow-y-auto pr-1 no-scrollbar">
             {allPlayers.map((player) => {
               const isActive = settings.selectedPlayer === player;
               const isCustom = !DEFAULT_PLAYERS.includes(player);
 
               const getEngineDesc = (p: string) => {
-                if (p.includes('Achour')) return isRtl ? 'محرك البث الفائق - تسريع عتادي 4K HW' : 'Achour HW Accelerated 4K Engine';
-                if (p.includes('VLC')) return isRtl ? 'محرك LibVLC المتقدم للمسارات الصوتية' : 'LibVLC Engine with Multi-track audio';
-                if (p.includes('ExoPlayer')) return isRtl ? 'محرك ExoPlayer / Media3 الرسمي المتطور' : 'Official ExoPlayer / Media3 Engine';
-                if (p.includes('MX Player')) return isRtl ? 'محرك HW+ لفك التشفير العالي والترجمة' : 'HW+ High Performance Decoder Engine';
-                if (p.includes('IJK')) return isRtl ? 'محرك FFmpeg / IJK لفك تشفير البث المباشر' : 'FFmpeg / IJK Direct Stream Engine';
-                if (p.includes('MPV')) return isRtl ? 'محرك MPV للفيديوهات عالية البت' : 'MPV High Bitrate Video Engine';
-                return isRtl ? 'محرك تشغيل برمجيات أندرويد وSmart TV' : 'Android / Smart TV Engine';
+                if (p.includes('Achour')) return isRtl ? 'مشغل مدمج فائق - تسريع عتادي 4K HW' : 'Achour HW Accelerated 4K Engine';
+                if (p.includes('VLC')) return isRtl ? 'VLC Media Player الرسمي (يدعم كافة الصيغ)' : 'Official VLC (Universal Codecs)';
+                if (p.includes('Fire TV')) return isRtl ? 'مشغل أمازون فاير تي في الرسمي' : 'Official Amazon Fire TV Player';
+                if (p.includes('MX Player')) return isRtl ? 'MX Player لفك التشفير العالي والترجمة' : 'HW+ High Performance Decoder Engine';
+                if (p.includes('MPV')) return isRtl ? 'MPV Player للفيديوهات عالية البت' : 'MPV High Bitrate Video Engine';
+                if (p.includes('Kodi')) return isRtl ? 'مشغل Kodi الشهير' : 'Kodi Media Center';
+                if (p.includes('Nova')) return isRtl ? 'Nova Video Player لشاشات أندرويد' : 'Nova Video Player for Android TV';
+                if (p.includes('Just')) return isRtl ? 'Just Player خفيف وسريع جداً' : 'Lightweight Fast Player';
+                return isRtl ? 'مشغل خارجي لأجهزة أندرويد وSmart TV' : 'Android / Smart TV Player';
               };
 
               return (
-                <div
+                <button
                   key={player}
+                  type="button"
+                  data-tv-focusable="true"
+                  tabIndex={0}
                   onClick={() => handlePlayerSelect(player)}
-                  className={`cursor-pointer flex flex-col justify-between p-3.5 glass-card rounded-2xl transition-all border relative group ${
+                  className={`cursor-pointer flex flex-col justify-between p-2.5 glass-card rounded-xl transition-all border relative group focus:outline-none focus:ring-4 focus:ring-gold text-left ${
                     isActive 
                       ? 'border-gold bg-gold/15 shadow-[0_0_20px_rgba(212,175,55,0.25)]' 
                       : 'border-white/5 hover:border-gold/40 hover:bg-white/5'
                   } ${isRtl ? 'text-right' : 'text-left'}`}
                 >
-                  <div className={`flex items-center gap-2.5 mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const isInstalled = settings.installedPlayers.includes(player);
-                      const updatedInstalled = isInstalled 
-                        ? settings.installedPlayers.filter(p => p !== player)
-                        : [...settings.installedPlayers, player];
-                      updateSetting('installedPlayers', updatedInstalled);
-                    }}
-                  >
-                    <div className={`p-1.5 rounded-full shrink-0 ${settings.installedPlayers.includes(player) ? 'bg-emerald-500 text-black' : 'bg-white/10 text-zinc-500'}`}>
-                      <Check size={12} />
+                  <div className={`flex items-center gap-2 mb-1 w-full ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <div className={`p-1 rounded-full shrink-0 ${isActive ? 'bg-gold text-black' : 'bg-white/10 text-zinc-500'}`}>
+                      <Check size={10} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className="text-xs font-black uppercase tracking-wider text-white block truncate">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-white block truncate">
                         {player}
                       </span>
                     </div>
                     {isActive && (
-                      <span className="px-2 py-0.5 bg-gold text-black font-black text-[9px] uppercase rounded shrink-0">
+                      <span className="px-1.5 py-0.5 bg-gold text-black font-black text-[8px] uppercase rounded shrink-0">
                         {isRtl ? 'مُفعّل' : 'Active'}
                       </span>
                     )}
                   </div>
 
-                  <p className="text-[10px] text-zinc-400 font-medium leading-tight">
+                  <p className="text-[9px] text-zinc-400 font-medium leading-tight line-clamp-1">
                     {getEngineDesc(player)}
                   </p>
 
                   {isCustom && (
-                    <div className="pt-2 mt-2 border-t border-white/10 flex items-center justify-between">
-                      <span className="text-[9px] font-mono text-gold/80">
+                    <div className="pt-1 mt-1 border-t border-white/10 flex items-center justify-between w-full">
+                      <span className="text-[8px] font-mono text-gold/80">
                         {isRtl ? 'مشغل مخصص' : 'Custom Player'}
                       </span>
                       <button
+                        type="button"
+                        tabIndex={-1}
                         title={isRtl ? 'حذف المشغل' : 'Delete Player'}
                         onClick={(e) => handleDeletePlayer(e, player)}
                         className="p-1 text-zinc-500 hover:text-red-400 transition-colors rounded-lg hover:bg-red-500/10"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={12} />
                       </button>
                     </div>
                   )}
-                </div>
+                </button>
               );
             })}
           </div>
 
           {/* Feature: Add External Player (خاصية إضافة مشغل خارجي) */}
-          <div className="pt-6 border-t border-white/10 glass-card p-6 rounded-3xl space-y-4">
-            <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}>
-              <div className="p-2.5 rounded-xl bg-gold/15 text-gold">
-                <Plus size={20} />
+          <div className="pt-3 border-t border-white/10 glass-card p-3 rounded-xl space-y-2">
+            <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}>
+              <div className="p-1.5 rounded-lg bg-gold/15 text-gold">
+                <Plus size={16} />
               </div>
               <div>
-                <h3 className="text-sm font-black text-gold uppercase tracking-wider">
-                  {isRtl ? 'خاصية إضافة مشغل خارجي' : 'Add Custom External Player'}
+                <h3 className="text-xs font-black text-gold uppercase tracking-wider">
+                  {isRtl ? 'إضافة مشغل خارجي مخصص' : 'Add Custom External Player'}
                 </h3>
-                <p className="text-xs text-zinc-400 mt-0.5">
+                <p className="text-[9px] text-zinc-400 leading-tight">
                   {isRtl 
-                    ? 'أدخل اسم أي تطبيق مشغل فيديو خارجي (مثل: Vimu Player, Kodi, BSPlayer...) لإضافته واعتماده'
-                    : 'Enter the name of any media player to configure and use it for playback'}
+                    ? 'أدخل اسم المشغل واسم حزمة التطبيق (Package Name) لإضافته للقائمة'
+                    : 'Enter the player name and Android package name to add it'}
                 </p>
               </div>
             </div>
 
-            <div className={`flex flex-col gap-3 ${isRtl ? 'sm:flex-row-reverse' : ''}`}>
+            <div className={`flex flex-col gap-2 ${isRtl ? 'sm:flex-row-reverse' : ''}`}>
               <input
                 type="text"
                 value={newPlayerName}
+                data-tv-focusable="true"
+                tabIndex={0}
                 onChange={(e) => {
                   setNewPlayerName(e.target.value);
                   if (error) setError('');
                 }}
-                className={`flex-1 bg-white/5 border border-white/10 rounded-xl p-4 text-white text-sm outline-none focus:border-gold/50 transition-all ${isRtl ? 'text-right' : 'text-left'}`}
-                placeholder={isRtl ? 'أدخل اسم المشغل...' : 'Enter player name...'}
+                className={`flex-1 bg-white/5 border border-white/10 rounded-xl p-2.5 text-white text-xs outline-none focus:border-gold/50 focus:ring-2 focus:ring-gold transition-all ${isRtl ? 'text-right' : 'text-left'}`}
+                placeholder={isRtl ? 'اسم المشغل...' : 'Player name...'}
               />
               <input
                 type="text"
                 value={newPlayerPackage}
+                data-tv-focusable="true"
+                tabIndex={0}
                 onChange={(e) => {
                   setNewPlayerPackage(e.target.value);
                   if (error) setError('');
                 }}
-                className={`flex-1 bg-white/5 border border-white/10 rounded-xl p-4 text-white text-sm outline-none focus:border-gold/50 transition-all ${isRtl ? 'text-right' : 'text-left'}`}
-                placeholder={isRtl ? 'أدخل اسم الحزمة (Package Name)...' : 'Enter package name (e.g. com.example.player)...'}
+                className={`flex-1 bg-white/5 border border-white/10 rounded-xl p-2.5 text-white text-xs outline-none focus:border-gold/50 focus:ring-2 focus:ring-gold transition-all ${isRtl ? 'text-right' : 'text-left'}`}
+                placeholder={isRtl ? 'اسم الحزمة (مثال: org.videolan.vlc)...' : 'Package name (e.g. org.videolan.vlc)...'}
               />
               <button
                 onClick={handleAddPlayer}
-                className="px-6 py-4 bg-gold hover:bg-gold/80 text-black font-black uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95 text-xs shadow-lg shrink-0"
+                data-tv-focusable="true"
+                tabIndex={0}
+                className="px-4 py-2.5 bg-gold hover:bg-gold/80 text-black font-black uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 text-[10px] shadow-lg shrink-0 focus:ring-4 focus:ring-white outline-none"
               >
-                <Plus size={18} />
-                <span>{isRtl ? 'إضافة المشغل' : t('add_player')}</span>
+                <Plus size={14} />
+                <span>{isRtl ? 'إضافة' : t('add_player')}</span>
               </button>
             </div>
             {error && <p className={`text-red-400 text-xs font-bold ${isRtl ? 'text-right' : 'text-left'}`}>{error}</p>}
@@ -1274,7 +1309,7 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
             />
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 max-h-[65vh] overflow-y-auto pr-1 scrollbar-hide">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-[65vh] overflow-y-auto pr-1 scrollbar-hide">
             {ROYAL_THEMES.map((theme, idx) => {
               const isActive = (settings.royalThemeColor || 'royal-gold') === theme.id;
               return (
@@ -1283,7 +1318,7 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                   data-tv-focusable="true"
                   tabIndex={0}
                   onClick={() => handleSelectRoyalTheme(theme.id)}
-                  className={`p-2.5 sm:p-3 glass-card rounded-xl border transition-all text-left flex flex-col justify-between group relative overflow-hidden outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
+                  className={`p-2 sm:p-2.5 glass-card rounded-xl border transition-all text-left flex flex-col justify-between group relative overflow-hidden outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
                     isActive 
                       ? 'border-white/40 shadow-xl scale-[1.02]' 
                       : 'border-white/5 hover:border-white/20 hover:bg-white/5'
@@ -1293,38 +1328,31 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                     boxShadow: isActive ? `0 0 25px ${theme.glow}` : undefined
                   }}
                 >
-                  <div className={`flex items-center justify-between w-full mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                    <div className="flex items-center gap-1.5">
+                  <div className={`flex items-center justify-between w-full mb-1.5 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <div className="flex items-center gap-1">
                       <div 
-                        className="w-4 h-4 rounded-full shadow-md border border-white/20"
+                        className="w-3.5 h-3.5 rounded-full shadow-md border border-white/20"
                         style={{ backgroundColor: theme.primary }}
                       />
                       <div 
-                        className="w-2.5 h-2.5 rounded-full opacity-70"
+                        className="w-2 h-2 rounded-full opacity-70"
                         style={{ backgroundColor: theme.secondary }}
                       />
-                      <div 
-                        className="w-2 h-2 rounded-full opacity-50"
-                        style={{ backgroundColor: theme.accent }}
-                      />
                     </div>
-                    <span className="text-[9px] font-mono font-bold text-zinc-500">#{idx + 1}</span>
+                    <span className="text-[8px] font-mono font-bold text-zinc-500">#{idx + 1}</span>
                   </div>
 
                   <div>
-                    <h3 className="text-[11px] sm:text-xs font-black uppercase text-white group-hover:text-gold transition-colors truncate">
+                    <h3 className="text-[10px] sm:text-[11px] font-black uppercase text-white group-hover:text-gold transition-colors truncate">
                       {theme.nameAr}
                     </h3>
-                    <p className="text-[9px] text-zinc-400 font-mono mt-0.5 truncate">
-                      {theme.nameEn}
-                    </p>
                   </div>
 
-                  <div className={`mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between text-[10px] font-mono ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  <div className={`mt-1.5 pt-1 border-t border-white/5 flex items-center justify-between text-[9px] font-mono ${isRtl ? 'flex-row-reverse' : ''}`}>
                     <span style={{ color: theme.primary }} className="font-bold">{theme.primary}</span>
                     {isActive ? (
                       <span className="flex items-center gap-1 text-emerald-400 font-bold">
-                        <Check size={12} />
+                        <Check size={10} />
                         <span>{isRtl ? 'مُفعّل' : 'Active'}</span>
                       </span>
                     ) : (
@@ -1361,7 +1389,7 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 max-h-[65vh] overflow-y-auto pr-1 scrollbar-hide">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 max-h-[65vh] overflow-y-auto pr-1 scrollbar-hide">
             {ICON_3D_STYLES.map((style, idx) => {
               const isActive = (settings.icon3DStyle || 'style-gold-3d') === style.id;
               return (
@@ -1370,38 +1398,35 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                   data-tv-focusable="true"
                   tabIndex={0}
                   onClick={() => handleSelect3DIconStyle(style.id)}
-                  className={`p-2.5 sm:p-3 rounded-xl border transition-all text-left flex flex-col justify-between group relative overflow-hidden outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
+                  className={`p-2 sm:p-2.5 rounded-xl border transition-all text-left flex flex-col justify-between group relative overflow-hidden outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
                     isActive 
                       ? 'border-gold shadow-[0_0_25px_rgba(212,175,55,0.3)] scale-[1.02]' 
                       : 'border-white/5 hover:border-gold/30 bg-black/40 hover:bg-white/5'
                   } ${isRtl ? 'text-right' : ''}`}
                 >
-                  <div className={`flex items-center justify-between w-full mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  <div className={`flex items-center justify-between w-full mb-1.5 ${isRtl ? 'flex-row-reverse' : ''}`}>
                     {/* Mini 3D Preview Icon */}
-                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg p-1.5 flex items-center justify-center ${style.cardClass}`}>
+                    <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg p-1 flex items-center justify-center ${style.cardClass}`}>
                       {style.iconImage ? (
                         <img src={style.iconImage} alt="" className={style.iconClass} />
                       ) : (
-                        <Tv size={16} className={style.iconClass} {...style.iconProps} />
+                        <Tv size={14} className={style.iconClass} {...style.iconProps} />
                       )}
                     </div>
-                    <span className="text-[9px] font-mono font-bold text-zinc-500">#{idx + 1}</span>
+                    <span className="text-[8px] font-mono font-bold text-zinc-500">#{idx + 1}</span>
                   </div>
 
                   <div>
-                    <h3 className="text-[11px] sm:text-xs font-black uppercase text-white group-hover:text-gold transition-colors truncate">
+                    <h3 className="text-[10px] sm:text-[11px] font-black uppercase text-white group-hover:text-gold transition-colors truncate">
                       {style.nameAr}
                     </h3>
-                    <p className="text-[9px] text-zinc-400 mt-0.5 line-clamp-2 leading-relaxed">
-                      {style.descriptionAr}
-                    </p>
                   </div>
 
-                  <div className={`mt-3 pt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-mono ${isRtl ? 'flex-row-reverse' : ''}`}>
-                    <span className="text-zinc-500">{style.nameEn}</span>
+                  <div className={`mt-2 pt-1.5 border-t border-white/5 flex items-center justify-between text-[9px] font-mono ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <span className="text-zinc-500 truncate max-w-[50%]">{style.nameEn}</span>
                     {isActive ? (
                       <span className="flex items-center gap-1 text-gold font-bold">
-                        <Check size={14} />
+                        <Check size={12} />
                         <span>{isRtl ? 'مُفعّل' : 'Active'}</span>
                       </span>
                     ) : (
@@ -1452,8 +1477,10 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
             ].map(tab => (
               <button
                 key={tab.id}
+                data-tv-focusable="true"
+                tabIndex={0}
                 onClick={() => setBgFilterTab(tab.id as any)}
-                className={`flex-1 py-2.5 rounded-xl text-xs font-black transition-all ${
+                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all outline-none focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
                   bgFilterTab === tab.id 
                     ? 'bg-gold text-black shadow-md' 
                     : 'text-zinc-400 hover:text-white hover:bg-white/5'
@@ -1466,17 +1493,17 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
 
           {/* CUSTOM UPLOAD MP4 & IMAGE SECTION */}
           {(bgFilterTab === 'all' || bgFilterTab === 'custom') && (
-            <div className="glass-card p-6 rounded-3xl border border-gold/30 space-y-4">
+            <div className="glass-card p-5 rounded-2xl border border-gold/30 space-y-4">
               <div className={`flex items-center justify-between ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}>
                 <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                  <div className="p-2.5 rounded-xl bg-gold/20 text-gold">
-                    <Upload size={22} />
+                  <div className="p-2 rounded-xl bg-gold/20 text-gold">
+                    <Upload size={20} />
                   </div>
                   <div>
-                    <h3 className="text-sm font-black text-gold uppercase tracking-wider">
+                    <h3 className="text-xs sm:text-sm font-black text-gold uppercase tracking-wider">
                       {isRtl ? 'خاصية رفع خلفية MP4 متحركة أو صورة ثابتة من جهازك' : 'Upload MP4 Video Background or Custom Image'}
                     </h3>
-                    <p className="text-xs text-zinc-400 mt-0.5">
+                    <p className="text-[10px] text-zinc-400 mt-0.5">
                       {isRtl ? 'يدعم ملفات الفيديو (MP4, WebM) والصور (PNG, JPG, WebP) أو الروابط المباشرة' : 'Supports video files (MP4, WebM), images (PNG, JPG), or direct URLs'}
                     </p>
                   </div>
@@ -1484,8 +1511,10 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
 
                 {settings.customBackground && (
                   <button
+                    data-tv-focusable="true"
+                    tabIndex={0}
                     onClick={handleRemoveCustomBackground}
-                    className="px-3.5 py-1.5 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white rounded-xl text-xs font-bold transition-all"
+                    className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white rounded-xl text-xs font-bold transition-all outline-none focus:ring-4 focus:ring-red-400"
                   >
                     {isRtl ? 'إزالة الخلفية المخصصة' : 'Remove Custom'}
                   </button>
@@ -1585,38 +1614,35 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                       data-tv-focusable="true"
                       tabIndex={0}
                       onClick={() => handleSelectBackground(bg.id)}
-                      className={`p-4 rounded-2xl border transition-all text-left flex flex-col justify-between group relative overflow-hidden outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
+                      className={`p-3 rounded-xl border transition-all text-left flex flex-col justify-between group relative overflow-hidden outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
                         isActive 
                           ? 'border-gold shadow-[0_0_25px_rgba(212,175,55,0.3)] scale-[1.02]' 
                           : 'border-white/5 hover:border-gold/30 bg-black/40 hover:bg-white/5'
                       } ${isRtl ? 'text-right' : ''}`}
                     >
-                      <div className={`flex items-center justify-between w-full mb-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                      <div className={`flex items-center justify-between w-full mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <div 
-                          className="w-10 h-10 rounded-xl border border-white/20 shadow-md flex items-center justify-center text-xs font-mono"
+                          className="w-7 h-7 rounded-lg border border-white/20 shadow-md flex items-center justify-center text-[10px] font-mono"
                           style={{ backgroundColor: bg.previewColor }}
                         >
                           {bg.type === 'animated' ? '✨' : '🖼️'}
                         </div>
-                        <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold ${bg.type === 'animated' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'}`}>
-                          {bg.type === 'animated' ? (isRtl ? 'متحركة' : 'Animated') : (isRtl ? 'ثابتة' : 'Static')}
+                        <span className={`text-[8px] font-mono px-1.5 py-0.5 rounded-full font-bold ${bg.type === 'animated' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/20 text-blue-300'}`}>
+                          {bg.type === 'animated' ? (isRtl ? 'متحركة' : 'Anim') : (isRtl ? 'ثابتة' : 'Stat')}
                         </span>
                       </div>
 
                       <div>
-                        <h3 className="text-xs font-black uppercase text-white group-hover:text-gold transition-colors">
+                        <h3 className="text-[10px] font-black uppercase text-white group-hover:text-gold transition-colors">
                           {bg.nameAr}
                         </h3>
-                        <p className="text-[10px] text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
-                          {bg.descriptionAr}
-                        </p>
                       </div>
 
-                      <div className={`mt-3 pt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-mono ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <span className="text-zinc-500 text-[10px]">{bg.nameEn}</span>
+                      <div className={`mt-2 pt-1 border-t border-white/5 flex items-center justify-between text-[9px] font-mono ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <span className="text-zinc-500 truncate max-w-[50%]">{bg.nameEn}</span>
                         {isActive ? (
                           <span className="flex items-center gap-1 text-gold font-bold">
-                            <Check size={14} />
+                            <Check size={10} />
                             <span>{isRtl ? 'مُفعّل' : 'Active'}</span>
                           </span>
                         ) : (
@@ -1654,7 +1680,7 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 max-h-[65vh] overflow-y-auto pr-1 scrollbar-hide">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 max-h-[65vh] overflow-y-auto pr-1 scrollbar-hide">
             {DASHBOARD_LAYOUTS.map((layoutOption, idx) => {
               const isActive = (settings.dashboardLayout || 'layout-classic-grid') === layoutOption.id;
               return (
@@ -1666,37 +1692,34 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                     updateSetting('dashboardLayout', layoutOption.id);
                     setSubView('main');
                   }}
-                  className={`p-5 glass-card rounded-2xl border transition-all text-left flex flex-col justify-between group relative overflow-hidden outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
+                  className={`p-3.5 glass-card rounded-xl border transition-all text-left flex flex-col justify-between group relative overflow-hidden outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
                     isActive 
                       ? 'border-gold bg-gold/15 shadow-[0_0_25px_rgba(212,175,55,0.3)] scale-[1.02]' 
                       : 'border-white/5 hover:border-gold/40 hover:bg-white/5'
                   } ${isRtl ? 'text-right' : ''}`}
                 >
-                  <div className={`flex items-center justify-between w-full mb-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                    <div className="p-2.5 rounded-xl bg-gold/20 text-gold">
-                      <LayoutDashboard size={20} />
+                  <div className={`flex items-center justify-between w-full mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <div className="p-1.5 rounded-lg bg-gold/20 text-gold">
+                      <LayoutDashboard size={16} />
                     </div>
-                    <span className="text-[10px] font-mono font-bold text-zinc-500">#{idx + 1}</span>
+                    <span className="text-[9px] font-mono font-bold text-zinc-500">#{idx + 1}</span>
                   </div>
 
                   <div>
-                    <h3 className="text-sm font-black uppercase text-white group-hover:text-gold transition-colors">
+                    <h3 className="text-[11px] font-black uppercase text-white group-hover:text-gold transition-colors">
                       {layoutOption.nameAr}
                     </h3>
-                    <p className="text-xs text-zinc-400 mt-1 line-clamp-2 leading-relaxed">
-                      {layoutOption.descriptionAr}
-                    </p>
                   </div>
 
-                  <div className={`mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-xs font-mono ${isRtl ? 'flex-row-reverse' : ''}`}>
-                    <span className="text-zinc-500 text-[10px]">{layoutOption.nameEn}</span>
+                  <div className={`mt-3 pt-2 border-t border-white/5 flex items-center justify-between text-[10px] font-mono ${isRtl ? 'flex-row-reverse' : ''}`}>
+                    <span className="text-zinc-500 truncate max-w-[50%]">{layoutOption.nameEn}</span>
                     {isActive ? (
                       <span className="flex items-center gap-1 text-gold font-bold">
-                        <Check size={14} />
+                        <Check size={10} />
                         <span>{isRtl ? 'مُفعّل' : 'Active'}</span>
                       </span>
                     ) : (
-                      <span className="text-zinc-400 group-hover:text-gold font-bold">{isRtl ? 'تطبيق الشكل' : 'Apply'}</span>
+                      <span className="text-zinc-400 group-hover:text-gold font-bold">{isRtl ? 'تطبيق' : 'Apply'}</span>
                     )}
                   </div>
                 </button>
@@ -1851,23 +1874,23 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                     data-tv-focusable="true"
                     tabIndex={0}
                     onClick={() => toggleCategoryVisibility(cat.category_id)}
-                    className={`flex items-center justify-between p-4 glass-card rounded-xl transition-all border outline-none focus:outline-none focus:ring-4 focus:ring-gold focus:scale-[1.02] ${
+                    className={`flex items-center justify-between p-3 glass-card rounded-xl transition-all border outline-none focus:outline-none focus:ring-4 focus:ring-gold focus:scale-[1.02] ${
                       isHidden 
                         ? 'border-red-500/50 bg-red-950/20 hover:bg-red-950/30' 
                         : 'border-white/5 hover:border-gold/40 hover:bg-white/5'
                     } ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}
                   >
                     <div className="flex flex-col min-w-0 flex-1">
-                      <span className={`text-sm font-bold truncate ${isHidden ? 'text-zinc-400 line-through' : 'text-white'}`}>
+                      <span className={`text-[13px] font-bold truncate ${isHidden ? 'text-zinc-400 line-through' : 'text-white'}`}>
                         {cat.category_name}
                       </span>
-                      <span className={`text-[11px] uppercase font-mono mt-0.5 font-bold ${isHidden ? 'text-red-400' : 'text-emerald-400'}`}>
-                        {isHidden ? (isRtl ? '✕ مخفي عن العرض' : '✕ Hidden') : (isRtl ? '✓ معروض للمشاهدة' : '✓ Visible')}
+                      <span className={`text-[10px] uppercase font-mono mt-0.5 font-bold ${isHidden ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {isHidden ? (isRtl ? '✕ مخفي' : '✕ Hidden') : (isRtl ? '✓ معروض' : '✓ Visible')}
                       </span>
                     </div>
 
-                    <div className={`p-2.5 rounded-xl ml-3 ${isHidden ? 'bg-red-500/20 text-red-400' : 'bg-gold/15 text-gold'}`}>
-                      {isHidden ? <EyeOff size={18} /> : <Eye size={18} />}
+                    <div className={`p-2 rounded-lg ml-2 ${isHidden ? 'bg-red-500/20 text-red-400' : 'bg-gold/15 text-gold'}`}>
+                      {isHidden ? <EyeOff size={16} /> : <Eye size={16} />}
                     </div>
                   </button>
                 );
@@ -1894,25 +1917,20 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
       <SubViewContainer title={isRtl ? 'إعدادات VPN والوكيل التلقائي لتخطي الحجب' : 'Smart VPN & Anti-Block Proxy Settings'} onBack={() => setSubView('main')} isRtl={isRtl}>
         <div className="space-y-6">
           {/* Main Toggle Card */}
-          <div className={`p-6 glass-card rounded-3xl border ${settings.vpnEnabled ? 'border-gold/50 bg-gold/10 shadow-[0_0_25px_rgba(212,175,55,0.2)]' : 'border-white/10 bg-black/40'} transition-all flex flex-col md:flex-row items-center justify-between gap-6`}>
-            <div className={`flex items-center gap-4 ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}>
-              <div className={`p-4 rounded-2xl ${settings.vpnEnabled ? 'bg-gold text-black shadow-lg shadow-gold/30 animate-pulse' : 'bg-white/10 text-zinc-400'}`}>
-                <Shield size={32} />
+          <div className={`p-4 glass-card rounded-2xl border ${settings.vpnEnabled ? 'border-gold/50 bg-gold/10 shadow-[0_0_20px_rgba(212,175,55,0.2)]' : 'border-white/10 bg-black/40'} transition-all flex flex-col md:flex-row items-center justify-between gap-4`}>
+            <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse text-right' : 'text-left'}`}>
+              <div className={`p-3 rounded-xl ${settings.vpnEnabled ? 'bg-gold text-black shadow-lg shadow-gold/30' : 'bg-white/10 text-zinc-400'}`}>
+                <Shield size={24} />
               </div>
               <div>
-                <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                  <h2 className="text-base font-black text-white uppercase tracking-wider">
-                    {isRtl ? 'VPN مجاني وتلقائي لتخطي حجب IPTV' : 'Automatic Anti-Block Smart VPN'}
+                <div className={`flex items-center gap-1.5 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                  <h2 className="text-sm font-black text-white uppercase tracking-wider">
+                    {isRtl ? 'VPN مجاني لتخطي الحجب' : 'Anti-Block Smart VPN'}
                   </h2>
-                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${settings.vpnEnabled ? 'bg-gold/20 text-gold border border-gold/40' : 'bg-zinc-800 text-zinc-400'}`}>
-                    {settings.vpnEnabled ? (isRtl ? '🟢 مُمكّن ويعمل' : '🟢 Active') : (isRtl ? '🔴 متوقف' : '🔴 Disabled')}
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${settings.vpnEnabled ? 'bg-gold/20 text-gold border border-gold/40' : 'bg-zinc-800 text-zinc-400'}`}>
+                    {settings.vpnEnabled ? (isRtl ? '🟢 مُمكّن' : '🟢 Active') : (isRtl ? '🔴 متوقف' : '🔴 Off')}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 mt-1 max-w-xl leading-relaxed">
-                  {isRtl 
-                    ? 'يقوم بتدوير الخوادم والروابط التلقائية وإضافة ترويسات متقدمة لتجاوز الحجب الجغرافي وحظر مزودي خدمة الإنترنت (ISP Unblock) لكافة القنوات والروابط المشفرة'
-                    : 'Rotates public proxy relays and injects header spoofing to unblock regionally restricted IPTV streams automatically.'}
-                </p>
               </div>
             </div>
 
@@ -1920,13 +1938,13 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
               data-tv-focusable="true"
               tabIndex={0}
               onClick={() => updateSetting('vpnEnabled', !settings.vpnEnabled)}
-              className={`w-full md:w-auto px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-3 shrink-0 active:scale-95 focus:ring-4 focus:ring-white outline-none ${
+              className={`w-full md:w-auto px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-2 shrink-0 active:scale-95 focus:ring-4 focus:ring-white outline-none ${
                 settings.vpnEnabled 
                   ? 'bg-gold hover:brightness-110 text-black shadow-gold/25' 
                   : 'bg-white/10 hover:bg-gold hover:text-black text-white border border-white/10'
               }`}
             >
-              <Shield size={18} />
+              <Shield size={14} />
               <span>{settings.vpnEnabled ? (isRtl ? 'إيقاف تشغيل VPN' : 'Disable VPN') : (isRtl ? 'تفعيل VPN الآن' : 'Enable VPN')}</span>
             </button>
           </div>
@@ -1945,24 +1963,21 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                     data-tv-focusable="true"
                     tabIndex={0}
                     onClick={() => updateSetting('vpnRegion', node.id as any)}
-                    className={`p-4 glass-card rounded-2xl border transition-all text-left flex items-center justify-between focus:ring-4 focus:ring-gold outline-none focus:scale-105 ${
+                    className={`p-3 glass-card rounded-xl border transition-all text-left flex items-center justify-between focus:ring-4 focus:ring-gold outline-none focus:scale-105 ${
                       isActive 
                         ? 'border-gold bg-gold/15 shadow-[0_0_20px_rgba(212,175,55,0.2)]' 
                         : 'border-white/5 hover:border-gold/30 hover:bg-white/5'
                     } ${isRtl ? 'flex-row-reverse text-right' : ''}`}
                   >
-                    <div className={`flex items-center gap-3 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                      <span className="text-2xl">{node.flag}</span>
+                    <div className={`flex items-center gap-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                      <span className="text-xl">{node.flag}</span>
                       <div>
-                        <span className="text-xs font-black text-white block uppercase tracking-wider">
+                        <span className="text-[11px] font-black text-white block uppercase tracking-wider">
                           {isRtl ? node.nameAr : node.nameEn}
-                        </span>
-                        <span className="text-[10px] text-zinc-500 font-mono block mt-0.5">
-                          {node.region}
                         </span>
                       </div>
                     </div>
-                    {isActive && <Check className="text-gold shrink-0" size={18} />}
+                    {isActive && <Check className="text-gold shrink-0" size={16} />}
                   </button>
                 );
               })}
@@ -1984,15 +1999,17 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                 return (
                   <button
                     key={`${mode.id}-${idx}`}
+                    data-tv-focusable="true"
+                    tabIndex={0}
                     onClick={() => updateSetting('vpnMode', mode.id as any)}
-                    className={`p-4 glass-card rounded-2xl border transition-all text-left flex flex-col justify-between ${
+                    className={`p-3 glass-card rounded-xl border transition-all text-left flex flex-col justify-between outline-none focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
                       isActive 
                         ? 'border-gold bg-gold/15 shadow-[0_0_20px_rgba(212,175,55,0.2)]' 
                         : 'border-white/5 hover:border-gold/30 hover:bg-white/5'
                     } ${isRtl ? 'text-right' : ''}`}
                   >
                     <div>
-                      <div className={`flex items-center justify-between mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                      <div className={`flex items-center justify-between mb-1.5 ${isRtl ? 'flex-row-reverse' : ''}`}>
                         <span className="text-xs font-black text-white uppercase tracking-wider">
                           {isRtl ? mode.labelAr : mode.labelEn}
                         </span>
@@ -2058,11 +2075,10 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
     return (
       <SubViewContainer title={isRtl ? 'حركة ومظهر وصوت شاشة البداية' : 'Splash Screen & Animations'} onBack={() => setSubView('main')} isRtl={isRtl}>
         <div className="space-y-6">
-          {/* Quick Preview Card */}
-          <div className="flex items-center justify-between p-4 glass-card rounded-2xl border border-gold/30">
+          <div className="flex items-center justify-between p-3 glass-card rounded-xl border border-gold/30">
             <div>
-              <h2 className="text-sm font-black text-white">{isRtl ? 'معاينة شاشة البداية الآن' : 'Test Splash Screen Now'}</h2>
-              <p className="text-xs text-zinc-400">{isRtl ? 'انقر لتجربة الحركة والشكل والصوت المختار مباشرة' : 'Click to preview the selected splash intro & sound'}</p>
+              <h2 className="text-xs font-black text-white">{isRtl ? 'معاينة شاشة البداية الآن' : 'Test Splash Screen Now'}</h2>
+              <p className="text-[10px] text-zinc-400">{isRtl ? 'انقر لتجربة الحركة والشكل والصوت' : 'Click to preview the selected splash intro'}</p>
             </div>
             <button
               data-tv-focusable="true"
@@ -2070,10 +2086,10 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
               onClick={() => {
                 if (onTriggerSplash) onTriggerSplash();
               }}
-              className="px-5 py-2.5 bg-gold text-black rounded-xl text-xs font-black uppercase hover:bg-gold/90 transition-all shadow-md active:scale-95 flex items-center gap-2 focus:ring-4 focus:ring-white outline-none"
+              className="px-4 py-2 bg-gold text-black rounded-lg text-[10px] font-black uppercase hover:bg-gold/90 transition-all shadow-md active:scale-95 flex items-center gap-2 focus:ring-4 focus:ring-white outline-none"
             >
-              <Sparkles size={14} />
-              <span>{isRtl ? 'تجربة وتشغيل' : 'Preview'}</span>
+              <Sparkles size={12} />
+              <span>{isRtl ? 'تجربة' : 'Preview'}</span>
             </button>
           </div>
 
@@ -2102,23 +2118,23 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
                     data-tv-focusable="true"
                     tabIndex={0}
                     onClick={() => updateSetting('splashStyle', item.id as any)}
-                    className={`p-4 glass-card rounded-2xl border transition-all text-left flex flex-col justify-between focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
+                    className={`p-3 glass-card rounded-xl border transition-all text-left flex flex-col justify-between focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${
                       isSelected
                         ? 'border-gold bg-gold/15 shadow-[0_0_20px_rgba(212,175,55,0.25)]'
                         : 'border-white/5 hover:border-gold/30 hover:bg-white/5'
                     } ${isRtl ? 'text-right' : 'text-left'}`}
                   >
                     <div>
-                      <div className={`flex items-center justify-between mb-2 ${isRtl ? 'flex-row-reverse' : ''}`}>
-                        <span className="text-xs font-black text-white">{isRtl ? item.nameAr : item.nameEn}</span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="px-2 py-0.5 rounded-full bg-gold/20 text-gold text-[9px] font-bold">
+                      <div className={`flex items-center justify-between mb-1 ${isRtl ? 'flex-row-reverse' : ''}`}>
+                        <span className="text-[11px] font-black text-white">{isRtl ? item.nameAr : item.nameEn}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="px-1.5 py-0.5 rounded-full bg-gold/20 text-gold text-[8px] font-bold">
                             {item.badgeAr}
                           </span>
-                          {isSelected && <Check className="text-gold shrink-0" size={16} />}
+                          {isSelected && <Check className="text-gold shrink-0" size={14} />}
                         </div>
                       </div>
-                      <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      <p className="text-[10px] text-zinc-400 leading-tight">
                         {item.descAr}
                       </p>
                     </div>
@@ -2174,30 +2190,36 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
       <SubViewContainer title={t('parental_control')} onBack={() => setSubView('main')} isRtl={isRtl}>
         <div className="max-w-md mx-auto space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-bold text-zinc-400 uppercase">{t('enter_password')}</label>
+            <label className="text-xs font-bold text-zinc-400 uppercase">{t('enter_password')}</label>
             <input
+              data-tv-focusable="true"
+              tabIndex={0}
               type="password"
               maxLength={6}
               value={passwordInput}
               onChange={(e) => setPasswordInput(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-white text-lg tracking-[0.5em] text-center outline-none focus:border-gold/50 transition-all font-mono"
+              className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-white text-base tracking-[0.5em] text-center outline-none focus:border-gold focus:ring-4 focus:ring-gold/50 transition-all font-mono"
               placeholder="••••"
             />
             {error && <p className="text-red-500 text-xs font-bold uppercase">{error}</p>}
           </div>
           <button
+            data-tv-focusable="true"
+            tabIndex={0}
             onClick={handleSetPassword}
-            className="w-full py-4 bg-gold text-black font-black uppercase tracking-widest rounded-xl hover:bg-gold/80 transition-all shadow-lg active:scale-95 text-xs"
+            className="w-full py-3 bg-gold text-black font-black uppercase tracking-widest rounded-xl hover:bg-gold/80 transition-all shadow-lg active:scale-95 text-xs outline-none focus:outline-none focus:ring-4 focus:ring-white"
           >
             {t('save')}
           </button>
           {settings.parentalPassword && (
             <button
+              data-tv-focusable="true"
+              tabIndex={0}
               onClick={() => {
                 updateSetting('parentalPassword', '');
                 setSubView('main');
               }}
-              className="w-full py-3 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl transition-all text-xs active:scale-95"
+              className="w-full py-2.5 bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white font-bold rounded-xl transition-all text-xs active:scale-95 outline-none focus:outline-none focus:ring-4 focus:ring-red-400"
             >
               {isRtl ? 'إلغاء القفل وحذف الرمز' : 'Remove Password'}
             </button>
@@ -2322,7 +2344,7 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
       </div>
 
       {/* The Classic Settings Tiles Grid - Compact & Fully Visible */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 w-full max-w-6xl mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 w-full max-w-6xl mb-6">
         {settingsItems.map((item, idx) => {
           const Icon = item.icon;
           return (
@@ -2333,16 +2355,16 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={item.action}
-              className="flex flex-col items-center justify-center p-3.5 glass-card rounded-2xl hover:border-gold/50 focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 transition-all border border-white/5 group relative overflow-hidden min-h-[105px]"
+              className="flex flex-col items-center justify-center p-2.5 glass-card rounded-xl hover:border-gold/50 focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 transition-all border border-white/5 group relative overflow-hidden min-h-[90px]"
             >
-              <div className="p-2.5 rounded-xl bg-white/5 text-gold group-hover:scale-110 group-hover:bg-gold/20 transition-all mb-2">
-                <Icon size={22} />
+              <div className="p-2 rounded-lg bg-white/5 text-gold group-hover:scale-110 group-hover:bg-gold/20 transition-all mb-1.5">
+                <Icon size={18} />
               </div>
-              <span className="text-xs font-black tracking-wider uppercase text-zinc-300 group-hover:text-white mb-1 text-center">
+              <span className="text-[10px] font-black tracking-wider uppercase text-zinc-300 group-hover:text-white mb-1 text-center leading-tight">
                 {item.label}
               </span>
               {item.value && (
-                <span className="text-[10px] font-mono font-bold text-gold/90 uppercase truncate max-w-[150px] bg-black/40 px-2 py-0.5 rounded-md border border-white/5">
+                <span className="text-[9px] font-mono font-bold text-gold/90 uppercase truncate max-w-[130px] bg-black/40 px-1.5 py-0.5 rounded-md border border-white/5">
                   {item.value}
                 </span>
               )}
@@ -2464,18 +2486,18 @@ export default function SettingsView({ onBack, settings, onUpdateSettings, userI
 
 function SubViewContainer({ title, onBack, children, isRtl }: { title: string, onBack: () => void, children: React.ReactNode, isRtl: boolean }) {
   return (
-    <div className={`min-h-screen max-h-screen w-full bg-black/70 backdrop-blur-md p-3 sm:p-5 pb-20 flex flex-col items-center select-none overflow-y-auto no-scrollbar ${isRtl ? 'font-cairo' : ''}`}>
-      <header className="w-full max-w-5xl flex items-center justify-between mb-4 shrink-0">
+    <div className={`min-h-screen max-h-screen w-full bg-black/70 backdrop-blur-md p-2.5 sm:p-4 pb-20 flex flex-col items-center select-none overflow-y-auto no-scrollbar ${isRtl ? 'font-cairo' : ''}`}>
+      <header className="w-full max-w-5xl flex items-center justify-between mb-3 shrink-0">
         <button 
           data-tv-focusable="true"
           tabIndex={0}
           onClick={onBack} 
-          className="p-2 sm:p-2.5 glass-card rounded-full text-white hover:bg-gold hover:text-black focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 transition-all shadow-lg active:scale-95"
+          className="p-1.5 sm:p-2 glass-card rounded-full text-white hover:bg-gold hover:text-black focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 transition-all shadow-lg active:scale-95"
         >
-          <ChevronLeft size={20} className={isRtl ? 'rotate-180' : ''} />
+          <ChevronLeft size={18} className={isRtl ? 'rotate-180' : ''} />
         </button>
-        <h1 className="text-sm sm:text-lg font-black tracking-widest text-gold uppercase">{title}</h1>
-        <div className="w-9" />
+        <h1 className="text-xs sm:text-base font-black tracking-widest text-gold uppercase">{title}</h1>
+        <div className="w-8" />
       </header>
       <div className="w-full max-w-5xl flex-1">
         {children}
@@ -2490,10 +2512,10 @@ function OptionButton({ label, active, onClick }: { label: string, active: boole
       data-tv-focusable="true"
       tabIndex={0}
       onClick={onClick}
-      className={`flex items-center justify-between p-5 glass-card rounded-2xl transition-all border focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${active ? 'border-gold bg-gold/15 shadow-[0_0_20px_rgba(212,175,55,0.2)]' : 'border-white/5 hover:bg-white/5'}`}
+      className={`flex items-center justify-between p-3.5 glass-card rounded-xl transition-all border focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 ${active ? 'border-gold bg-gold/15 shadow-[0_0_20px_rgba(212,175,55,0.2)]' : 'border-white/5 hover:bg-white/5'}`}
     >
-      <span className="text-sm font-black uppercase tracking-wider">{label}</span>
-      {active && <Check className="text-gold" size={20} />}
+      <span className="text-xs font-black uppercase tracking-wider">{label}</span>
+      {active && <Check className="text-gold" size={16} />}
     </button>
   );
 }
