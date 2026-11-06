@@ -682,11 +682,11 @@ const MultiVideoSlot: React.FC<MultiVideoSlotProps> = ({
           }
         }
       }}
-      className={`relative w-full h-full bg-zinc-950 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer group outline-none focus:ring-4 focus:ring-gold ${
+      className={`relative w-full h-full bg-black rounded-lg overflow-hidden flex items-center justify-center cursor-pointer group outline-none border-0 ${
         multiViewMode !== 'none'
           ? isActive
-            ? 'ring-4 ring-gold z-30 shadow-2xl scale-[1.01]'
-            : 'ring-1 ring-white/10 opacity-85 hover:opacity-100'
+            ? 'z-30 shadow-2xl scale-[1.01]'
+            : 'opacity-85 hover:opacity-100'
           : 'border-0'
       }`}
     >
@@ -810,10 +810,24 @@ export const getCachedIPTVData = (
 ): { categories: ParsedCategory[]; channels: ParsedChannel[] } | null => {
   const normType = (type === 'movies' || type === 'vod') ? 'movie' : type;
   
+  if (playlistId) {
+    const specificKeys = [
+      `${userId || ''}_${normType}_${playlistId}`,
+      `${normType}_${playlistId}`
+    ];
+    for (const k of specificKeys) {
+      if (k && iptvGlobalCache.has(k)) {
+        const cached = iptvGlobalCache.get(k);
+        if (cached && (cached.channels?.length > 0 || cached.categories?.length > 0)) {
+          return cached;
+        }
+      }
+    }
+    return null;
+  }
+
   const candidateKeys = [
-    `${userId || ''}_${normType}_${playlistId || ''}`,
     `${userId || ''}_${normType}_default`,
-    `${normType}_${playlistId || ''}`,
     `${normType}_default`,
     normType
   ];
@@ -2483,8 +2497,21 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
     } catch (err) {}
   };
 
+  const activePlaylistIdRef = useRef(settings.activePlaylistId);
   useEffect(() => {
-    fetchIPTVData();
+    if (activePlaylistIdRef.current !== settings.activePlaylistId) {
+      activePlaylistIdRef.current = settings.activePlaylistId;
+      setSelectedChannel(null);
+      setSelectedCategory('');
+      setChannels([]);
+      setCategories([]);
+      setSearch('');
+      isFetchingRef.current = false;
+      lastFetchKeyRef.current = '';
+      fetchIPTVData(true);
+    } else {
+      fetchIPTVData();
+    }
   }, [userId, mediaType, settings.activePlaylistId]);
 
   useEffect(() => {

@@ -35,6 +35,7 @@ export default function SplashScreen({
   language = 'en'
 }: SplashScreenProps) {
   const [soundPlayed, setSoundPlayed] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(15);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isFinishedRef = useRef(false);
   const theme = ROYAL_THEMES.find(t => t.id === royalThemeId) || ROYAL_THEMES[0];
@@ -190,9 +191,16 @@ export default function SplashScreen({
 
     preloadAllIPTVContent(activePlaylist, userId, () => {});
 
-    const timer = setTimeout(() => {
-      finishSplash();
-    }, TOTAL_SPLASH_DURATION_MS);
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const rem = Math.max(0, Math.ceil((TOTAL_SPLASH_DURATION_MS - elapsed) / 1000));
+      setSecondsLeft(rem);
+      if (elapsed >= TOTAL_SPLASH_DURATION_MS) {
+        clearInterval(interval);
+        finishSplash();
+      }
+    }, 100);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32 || e.key === 'Select') {
@@ -203,7 +211,7 @@ export default function SplashScreen({
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      clearTimeout(timer);
+      clearInterval(interval);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [activePlaylist, userId]);
@@ -301,7 +309,7 @@ export default function SplashScreen({
       {/* Top Spacer */}
       <div className="w-full h-8" />
 
-      {/* Center Showcase Area: Logo + App Name Only */}
+      {/* Center Showcase Area: Logo + App Name + Circular Seconds Ring */}
       <div className="relative flex flex-col items-center justify-center z-10 max-w-lg w-full px-6 text-center my-auto">
         
         {/* Animated 3D Logo Card */}
@@ -371,16 +379,46 @@ export default function SplashScreen({
           </motion.div>
         </div>
 
-        {/* Brand Title Only */}
+        {/* Brand Title & Animated Seconds Circle */}
         <motion.div
           initial={{ y: 15, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className="text-center"
+          className="text-center flex flex-col items-center gap-3"
         >
           <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-[0.25em] text-white drop-shadow-md">
             ACHOUR <span className="text-gold">PLAYER</span>
           </h1>
+
+          {/* Animated Circle Progress Ring with Seconds Countdown */}
+          <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center mt-2">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 48 48">
+              <circle
+                cx="24"
+                cy="24"
+                r="20"
+                stroke="rgba(255, 255, 255, 0.12)"
+                strokeWidth="3.5"
+                fill="transparent"
+              />
+              <motion.circle
+                cx="24"
+                cy="24"
+                r="20"
+                stroke="#D4AF37"
+                strokeWidth="3.5"
+                strokeDasharray="125.6"
+                strokeDashoffset={125.6 * (1 - secondsLeft / 15)}
+                strokeLinecap="round"
+                fill="transparent"
+                transition={{ duration: 0.8, ease: "linear" }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="font-mono font-black text-lg sm:text-xl text-gold drop-shadow-md">{secondsLeft}</span>
+              <span className="text-[8px] font-mono text-zinc-400 font-bold uppercase -mt-1">SEC</span>
+            </div>
+          </div>
         </motion.div>
       </div>
 

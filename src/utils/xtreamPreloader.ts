@@ -69,8 +69,8 @@ export async function preloadAllIPTVContent(
   const movieKey = `${userId}_movie_${playlistId}`;
   const seriesKey = `${userId}_series_${playlistId}`;
 
-  // Check if already in memory
-  if (iptvGlobalCache.has(liveKey) || iptvGlobalCache.has('live')) {
+  // Check if active playlist is already preloaded in memory
+  if (iptvGlobalCache.has(liveKey)) {
     notify('complete', 100, 'جميع القنوات والأفلام والمسلسلات جاهزة فورياً');
     return true;
   }
