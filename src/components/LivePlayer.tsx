@@ -2952,51 +2952,19 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-gold/5 blur-[120px] rounded-full" />
       </div>
 
-      {/* Header - Clean Tabs, Search, Clock */}
+      {/* Header - Clean Back Button & Clock */}
       <header className="relative z-30 h-16 flex items-center justify-between px-6 bg-black/50 backdrop-blur-md border-b border-white/5 shrink-0">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <button 
             data-tv-focusable="true" 
             data-tv-pane="header" 
             data-header-index="0"
             tabIndex={0} 
             onClick={onBack} 
-            className="px-3.5 py-1.5 text-xs sm:text-sm font-bold text-zinc-300 hover:text-white focus:text-gold focus:ring-2 focus:ring-gold focus:bg-gold/20 focus:scale-105 rounded-xl transition-all outline-none"
+            className="flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-black text-gold hover:text-white bg-gold/10 hover:bg-gold/20 border border-gold/30 focus:border-gold focus:ring-2 focus:ring-gold focus:scale-105 rounded-xl transition-all outline-none"
           >
-            {isRtl ? 'الرئيسية' : 'Startseite'}
-          </button>
-          <div className="h-4 w-[1.5px] bg-white/20 mx-0.5" />
-          <button 
-            data-tv-focusable="true" 
-            data-tv-pane="header" 
-            data-header-index="1"
-            tabIndex={0} 
-            onClick={() => handleSwitchMediaType('live')} 
-            className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold transition-all outline-none focus:ring-2 focus:ring-gold focus:scale-105 rounded-xl ${mediaType === 'live' ? 'text-gold font-black bg-gold/15 border border-gold/40' : 'text-zinc-300 hover:text-white focus:text-gold'}`}
-          >
-            {isRtl ? 'مباشر' : 'Live'}
-          </button>
-          <div className="h-4 w-[1.5px] bg-white/20 mx-0.5" />
-          <button 
-            data-tv-focusable="true" 
-            data-tv-pane="header" 
-            data-header-index="2"
-            tabIndex={0} 
-            onClick={() => handleSwitchMediaType('movie')} 
-            className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold transition-all outline-none focus:ring-2 focus:ring-gold focus:scale-105 rounded-xl ${mediaType === 'movie' ? 'text-gold font-black bg-gold/15 border border-gold/40' : 'text-zinc-300 hover:text-white focus:text-gold'}`}
-          >
-            {isRtl ? 'أفلام' : 'Filme'}
-          </button>
-          <div className="h-4 w-[1.5px] bg-white/20 mx-0.5" />
-          <button 
-            data-tv-focusable="true" 
-            data-tv-pane="header" 
-            data-header-index="3"
-            tabIndex={0} 
-            onClick={() => handleSwitchMediaType('series')} 
-            className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold transition-all outline-none focus:ring-2 focus:ring-gold focus:scale-105 rounded-xl ${mediaType === 'series' ? 'text-gold font-black bg-gold/15 border border-gold/40' : 'text-zinc-300 hover:text-white focus:text-gold'}`}
-          >
-            {isRtl ? 'مسلسلات' : 'Serie'}
+            <ChevronRight size={18} className={isRtl ? '' : 'rotate-180'} />
+            <span>{isRtl ? 'الرجوع للقائمة' : 'Back'}</span>
           </button>
         </div>
 
@@ -3454,9 +3422,9 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
               )}
             </AnimatePresence>
 
-            {/* SATELLITE RECEIVER OSD INFOBAR (Restored fully with Signal/Quality & Color Keys) */}
+            {/* SATELLITE RECEIVER OSD INFOBAR (Shows ONLY in Fullscreen, Info Overlay Only) */}
             <div className={`absolute bottom-1.5 left-1.5 right-1.5 sm:bottom-3 sm:left-3 sm:right-3 p-1.5 sm:p-2 bg-zinc-950/96 border border-gold/30 backdrop-blur-3xl rounded-lg sm:rounded-xl flex flex-col gap-1 sm:gap-1.5 z-50 shadow-[0_15px_50px_rgba(0,0,0,0.95)] transition-all duration-300 ${
-              showControls
+              isFullscreen && showControls
                 ? 'opacity-100 translate-y-0 pointer-events-auto' 
                 : 'opacity-0 translate-y-6 pointer-events-none'
             }`}>
@@ -3547,89 +3515,26 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-                  <div className="flex items-center gap-1 bg-black/60 p-1 rounded-lg border border-white/10">
-                    <button 
-                      data-tv-focusable="true" 
-                      data-tv-pane="player-controls"
-                      onClick={() => { setMultiViewMode('none'); setActiveSlot(0); }} 
-                      className={`px-2 py-1 rounded text-[9px] font-black uppercase transition-all focus:ring-2 focus:ring-gold ${multiViewMode === 'none' ? 'bg-gold text-black shadow-md' : 'text-zinc-400 hover:text-white'}`}
-                      title={isRtl ? 'شاشة واحدة' : 'Single Screen'}
-                    >
-                      {isRtl ? 'شاشة' : '1'}
-                    </button>
-                    <button 
-                      data-tv-focusable="true" 
-                      data-tv-pane="player-controls"
-                      onClick={() => {
-                        setMultiViewMode('dual');
-                        if (activeSlot > 1) setActiveSlot(0);
-                        setMultiChannels(prev => {
-                          const next = [...prev];
-                          if (!next[0] && (selectedChannel || activePlayingMovie)) next[0] = selectedChannel || activePlayingMovie;
-                          if (!next[1]) {
-                            const curId = next[0]?.stream_id;
-                            const idx = Math.max(0, filteredChannels.findIndex(c => c.stream_id === curId));
-                            next[1] = filteredChannels[(idx + 1) % filteredChannels.length] || null;
-                          }
-                          return next;
-                        });
-                      }}
-                      className={`px-2 py-1 rounded text-[9px] font-black uppercase transition-all focus:ring-2 focus:ring-gold ${multiViewMode === 'dual' ? 'bg-gold text-black shadow-md' : 'text-zinc-400 hover:text-white'}`}
-                      title={isRtl ? 'شاشتين' : 'Dual Screen'}
-                    >
-                      {isRtl ? 'شاشتين' : '2'}
-                    </button>
-                    <button 
-                      data-tv-focusable="true" 
-                      data-tv-pane="player-controls"
-                      onClick={() => {
-                        setMultiViewMode('quad');
-                        setMultiChannels(prev => {
-                          const next = [...prev];
-                          if (!next[0] && (selectedChannel || activePlayingMovie)) next[0] = selectedChannel || activePlayingMovie;
-                          const curId = next[0]?.stream_id;
-                          const baseIdx = Math.max(0, filteredChannels.findIndex(c => c.stream_id === curId));
-                          for (let i = 1; i < 4; i++) {
-                            if (!next[i]) {
-                              next[i] = filteredChannels[(baseIdx + i) % filteredChannels.length] || null;
-                            }
-                          }
-                          return next;
-                        });
-                      }}
-                      className={`px-2 py-1 rounded text-[9px] font-black uppercase transition-all focus:ring-2 focus:ring-gold ${multiViewMode === 'quad' ? 'bg-gold text-black shadow-md' : 'text-zinc-400 hover:text-white'}`}
-                      title={isRtl ? 'أربع شاشات' : 'Quad Screen'}
-                    >
-                      {isRtl ? '4 شاشات' : '4'}
-                    </button>
-                  </div>
-
                   <button 
-                    data-tv-focusable="true"
-                    data-tv-pane="player-controls"
                     onClick={() => setShowEpgTimeline(true)} 
-                    className="px-2.5 py-1 bg-white/5 border border-white/10 hover:border-gold rounded-lg text-[9px] font-black uppercase text-zinc-200 hover:text-gold transition-all flex items-center gap-1 focus:ring-2 focus:ring-gold"
+                    className="px-2.5 py-1 bg-white/5 border border-white/10 hover:border-gold rounded-lg text-[9px] font-black uppercase text-zinc-200 hover:text-gold transition-all flex items-center gap-1"
                   >
                     <Clock size={11} className="text-gold" />
                     <span>{isRtl ? 'الدليل' : 'EPG'}</span>
                   </button>
                   <button 
-                    data-tv-focusable="true"
-                    data-tv-pane="player-controls"
                     onClick={() => setShowEpgGrid(true)} 
-                    className="px-2.5 py-1 bg-gold text-black border border-gold rounded-lg text-[9px] font-black uppercase hover:bg-gold/80 transition-all flex items-center gap-1 shadow-[0_0_10px_rgba(212,175,55,0.3)] focus:ring-2 focus:ring-black"
+                    className="px-2.5 py-1 bg-gold text-black border border-gold rounded-lg text-[9px] font-black uppercase hover:bg-gold/80 transition-all flex items-center gap-1 shadow-[0_0_10px_rgba(212,175,55,0.3)]"
                   >
                     <LayoutGrid size={11} />
                     <span>{isRtl ? 'الجدول' : 'Grid'}</span>
                   </button>
                   <button 
-                    data-tv-focusable="true"
-                    data-tv-pane="player-controls"
                     onClick={() => {
                       const cur = multiChannels[activeSlot] || selectedChannel;
                       if (cur) toggleFavorite(cur.stream_id);
                     }}
-                    className={`px-2.5 py-1 border rounded-lg text-[9px] font-black uppercase transition-all flex items-center gap-1 focus:ring-2 focus:ring-gold ${
+                    className={`px-2.5 py-1 border rounded-lg text-[9px] font-black uppercase transition-all flex items-center gap-1 ${
                       (multiChannels[activeSlot] || selectedChannel) && favorites.includes((multiChannels[activeSlot]?.stream_id || selectedChannel?.stream_id) as string)
                         ? 'bg-gold text-black border-gold shadow-[0_0_10px_rgba(212,175,55,0.3)]' : 'bg-white/5 border-white/10 text-zinc-200 hover:border-gold hover:text-gold'
                     }`}
@@ -3644,50 +3549,40 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
               <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 sm:gap-4">
                 <div className="flex items-center gap-1 sm:gap-1.5">
                   <button 
-                    data-tv-focusable="true"
-                    data-tv-pane="player-controls"
                     onClick={() => { setShowAudioMenu(!showAudioMenu); setShowSubMenu(false); setShowQualityMenu(false); }} 
-                    className="flex items-center gap-1 px-2 py-1 bg-red-950/40 border border-red-500/40 rounded-lg text-red-300 text-[9px] font-black hover:bg-red-900/60 transition-all shadow-sm focus:ring-2 focus:ring-red-500"
+                    className="flex items-center gap-1 px-2 py-1 bg-red-950/40 border border-red-500/40 rounded-lg text-red-300 text-[9px] font-black hover:bg-red-900/60 transition-all shadow-sm"
                   >
                     <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
                     {isRtl ? 'الصوت' : settings.language === 'de' ? 'AUDIO' : 'AUDIO'}
                   </button>
                   <button 
-                    data-tv-focusable="true"
-                    data-tv-pane="player-controls"
                     onClick={() => { setShowSubMenu(!showSubMenu); setShowAudioMenu(false); setShowQualityMenu(false); }} 
-                    className="flex items-center gap-1 px-2 py-1 bg-emerald-950/40 border border-emerald-500/40 rounded-lg text-emerald-300 text-[9px] font-black hover:bg-emerald-900/60 transition-all shadow-sm focus:ring-2 focus:ring-emerald-500"
+                    className="flex items-center gap-1 px-2 py-1 bg-emerald-950/40 border border-emerald-500/40 rounded-lg text-emerald-300 text-[9px] font-black hover:bg-emerald-900/60 transition-all shadow-sm"
                   >
                     <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
                     {isRtl ? 'الترجمة' : settings.language === 'de' ? 'UNTERTITEL' : 'SUB'}
                   </button>
                   <button 
-                    data-tv-focusable="true"
-                    data-tv-pane="player-controls"
                     onClick={() => { setShowQualityMenu(!showQualityMenu); setShowAudioMenu(false); setShowSubMenu(false); }} 
-                    className="flex items-center gap-1 px-2 py-1 bg-gold/10 border border-gold/40 rounded-lg text-gold text-[9px] font-black hover:bg-gold/20 transition-all shadow-sm focus:ring-2 focus:ring-gold"
+                    className="flex items-center gap-1 px-2 py-1 bg-gold/10 border border-gold/40 rounded-lg text-gold text-[9px] font-black hover:bg-gold/20 transition-all shadow-sm"
                   >
                     <div className="w-2 h-2 rounded-full bg-gold shadow-[0_0_6px_var(--theme-glow,rgba(229,160,13,0.8))]" />
                     {selectedQuality.split(' ')[0] || (isRtl ? 'الجودة' : settings.language === 'de' ? 'QUALITÄT' : 'QUAL')}
                   </button>
                   <button 
-                    data-tv-focusable="true"
-                    data-tv-pane="player-controls"
                     onClick={() => {
                       const ratios: Array<'16:9' | '4:3' | 'fill' | 'fit'> = ['16:9', '4:3', 'fill', 'fit'];
                       const nextRatio = ratios[(ratios.indexOf(aspectRatio) + 1) % ratios.length];
                       setAspectRatio(nextRatio);
                     }} 
-                    className="flex items-center gap-1 px-2 py-1 bg-gold/10 border border-gold/40 rounded-lg text-gold text-[9px] font-black hover:bg-gold/20 transition-all shadow-sm focus:ring-2 focus:ring-gold"
+                    className="flex items-center gap-1 px-2 py-1 bg-gold/10 border border-gold/40 rounded-lg text-gold text-[9px] font-black hover:bg-gold/20 transition-all shadow-sm"
                   >
                     <div className="w-2 h-2 rounded-full bg-gold shadow-[0_0_6px_var(--theme-glow,rgba(229,160,13,0.8))]" />
                     {aspectRatio.toUpperCase()}
                   </button>
                   <button 
-                    data-tv-focusable="true"
-                    data-tv-pane="player-controls"
                     onClick={() => setIsMuted(!isMuted)} 
-                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black transition-all shadow-sm border focus:ring-2 focus:ring-gold ${isMuted ? 'bg-red-500/20 border-red-500 text-red-300' : 'bg-white/5 border-white/10 text-zinc-200 hover:bg-white/10'}`}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black transition-all shadow-sm border ${isMuted ? 'bg-red-500/20 border-red-500 text-red-300' : 'bg-white/5 border-white/10 text-zinc-200 hover:bg-white/10'}`}
                   >
                     {isMuted ? <VolumeX size={12} className="text-red-400" /> : <Volume2 size={12} className="text-gold" />}
                     <span>{isMuted ? (isRtl ? 'كتم' : settings.language === 'de' ? 'STUMM' : 'Mute') : `${Math.round(volume * 100)}%`}</span>
@@ -3698,11 +3593,8 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                   {/* Dedicated Channel Flipping Buttons (Left: CH- / Right: CH+) */}
                   <div dir="ltr" className="flex items-center gap-1 bg-black/60 p-1 rounded-xl border border-gold/30 shadow-inner">
                     <button 
-                      data-tv-focusable="true"
-                      data-tv-pane="player-controls"
-                      tabIndex={0}
                       onClick={(e) => { e.stopPropagation(); switchChannelByOffset(-1); }}
-                      className="flex items-center gap-1 px-2.5 py-1 text-zinc-200 hover:text-gold hover:bg-white/10 rounded-lg text-xs font-bold transition-all focus:ring-2 focus:ring-gold outline-none"
+                      className="flex items-center gap-1 px-2.5 py-1 text-zinc-200 hover:text-gold hover:bg-white/10 rounded-lg text-xs font-bold transition-all outline-none"
                       title={isRtl ? 'القناة السابقة (يسار - CH-)' : 'Previous Channel (Left - CH-)'}
                     >
                       <ChevronLeft size={16} className="text-gold" />
@@ -3710,11 +3602,8 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                     </button>
                     <div className="w-[1px] h-4 bg-white/10" />
                     <button 
-                      data-tv-focusable="true"
-                      data-tv-pane="player-controls"
-                      tabIndex={0}
                       onClick={(e) => { e.stopPropagation(); switchChannelByOffset(1); }}
-                      className="flex items-center gap-1 px-2.5 py-1 text-zinc-200 hover:text-gold hover:bg-white/10 rounded-lg text-xs font-bold transition-all focus:ring-2 focus:ring-gold outline-none"
+                      className="flex items-center gap-1 px-2.5 py-1 text-zinc-200 hover:text-gold hover:bg-white/10 rounded-lg text-xs font-bold transition-all outline-none"
                       title={isRtl ? 'القناة التالية (يمين - CH+)' : 'Next Channel (Right - CH+)'}
                     >
                       <span className="font-mono text-[11px] hidden sm:inline">CH+</span>
@@ -3724,14 +3613,12 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
 
                   <div className="flex items-center gap-1 bg-black/50 p-1 rounded-xl border border-white/15">
                     <button 
-                      data-tv-focusable="true"
-                      data-tv-pane="player-controls"
                       onClick={(e) => {
                         e.stopPropagation();
                         const vid = getTargetVideoElement(activeSlot);
                         if (vid) { if (vid.paused) vid.play(); else vid.pause(); }
                       }}
-                      className="w-8 h-8 sm:w-9 sm:h-9 bg-gold text-black rounded-lg flex items-center justify-center hover:scale-105 transition-all shadow-[0_0_15px_rgba(212,175,55,0.4)] focus:ring-4 focus:ring-black"
+                      className="w-8 h-8 sm:w-9 sm:h-9 bg-gold text-black rounded-lg flex items-center justify-center hover:scale-105 transition-all shadow-[0_0_15px_rgba(212,175,55,0.4)]"
                     >
                       {isPlaying ? <Pause size={18} className="fill-black" /> : <Play size={18} className="fill-black ml-0.5" />}
                     </button>
