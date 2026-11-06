@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Volume2, VolumeX, Radio, Disc, ArrowRight, Zap, CheckCircle2 } from 'lucide-react';
-import { RoyalTheme, ROYAL_THEMES } from '../utils/themeManager';
+import { motion } from 'framer-motion';
+import { ArrowRight } from 'lucide-react';
+import { ROYAL_THEMES } from '../utils/themeManager';
 import logoImg from '../assets/logo.jpg';
 import { preloadAllIPTVContent } from '../utils/xtreamPreloader';
 
@@ -21,6 +21,7 @@ interface SplashScreenProps {
   splashStyle?: SplashStyle;
   activePlaylist?: any;
   userId?: string;
+  language?: string;
 }
 
 const TOTAL_SPLASH_DURATION_MS = 15000; // 15 seconds full preload
@@ -29,29 +30,15 @@ export default function SplashScreen({
   onComplete, 
   royalThemeId = 'royal-gold',
   soundTrack = 'cinematic_netflix',
-  splashStyle = 'floating_3d',
   activePlaylist,
-  userId = 'default'
+  userId = 'default',
+  language = 'en'
 }: SplashScreenProps) {
-  const [progress, setProgress] = useState(0);
-  const [statusMessage, setStatusMessage] = useState('جاري بدء النظام والاتصال بالسيرفر...');
   const [soundPlayed, setSoundPlayed] = useState(false);
-  const [secondsLeft, setSecondsLeft] = useState(15);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const isFinishedRef = useRef(false);
   const theme = ROYAL_THEMES.find(t => t.id === royalThemeId) || ROYAL_THEMES[0];
 
-  // Normalize legacy style names to active animation styles
-  const activeStyle: 'floating_3d' | 'cinema_pulse' | 'neon_orbit' | 'minimal_zoom' = 
-    splashStyle === 'cinema_pulse' || splashStyle === 'modern_cinematic'
-      ? 'cinema_pulse'
-      : splashStyle === 'neon_orbit' || splashStyle === 'minimal_neon'
-      ? 'neon_orbit'
-      : splashStyle === 'minimal_zoom'
-      ? 'minimal_zoom'
-      : 'floating_3d';
-
-  // Synthesize Luxurious 15-Second Studio Intro Soundtracks
   const playIntroAudio = () => {
     if (soundTrack === 'mute') return;
 
@@ -68,7 +55,7 @@ export default function SplashScreen({
       const now = ctx.currentTime;
 
       if (soundTrack === 'cinematic_netflix') {
-        // 1. Deep modern cinematic "Ta-Dum" boom: rich low octave hit
+        // Deep modern cinematic "Ta-Dum" boom: rich low octave hit
         const subOsc1 = ctx.createOscillator();
         const subGain = ctx.createGain();
         const filter = ctx.createBiquadFilter();
@@ -92,7 +79,7 @@ export default function SplashScreen({
         subOsc1.start(now);
         subOsc1.stop(now + 3.2);
 
-        // 2. 15-Second Warm Golden Ambient Strings & Chords Progression
+        // 15-Second Warm Golden Ambient Strings & Chords Progression
         const chordProgressions = [
           { time: 0.2, root: 130.81, third: 155.56, fifth: 196.00, dur: 4.0 },  // C minor
           { time: 4.0, root: 103.83, third: 130.81, fifth: 155.56, dur: 4.0 },  // Ab major
@@ -126,7 +113,6 @@ export default function SplashScreen({
         });
 
       } else if (soundTrack === 'soft_chime') {
-        // Celestial gentle chimes cycling across 15 seconds
         const notes = [523.25, 659.25, 783.99, 1046.50, 880.00, 659.25];
         for (let loop = 0; loop < 5; loop++) {
           notes.forEach((freq, i) => {
@@ -164,7 +150,6 @@ export default function SplashScreen({
           osc.stop(tStart + 3.0);
         }
       } else {
-        // Royal Brass chord swell spanning 15 seconds
         [0, 5, 10].forEach(timeOffset => {
           [196.00, 246.94, 293.66, 392.00].forEach((freq, idx) => {
             const osc = ctx.createOscillator();
@@ -197,49 +182,18 @@ export default function SplashScreen({
   const finishSplash = () => {
     if (isFinishedRef.current) return;
     isFinishedRef.current = true;
-    setProgress(100);
-    setSecondsLeft(0);
     setTimeout(onComplete, 200);
   };
 
   useEffect(() => {
     playIntroAudio();
 
-    // 1. Start parallel deep preloading of Live TV, Movies, and Series into global cache
-    preloadAllIPTVContent(activePlaylist, userId, (status) => {
-      setStatusMessage(status.message);
-    });
+    preloadAllIPTVContent(activePlaylist, userId, () => {});
 
-    // 2. 15-Second Countdown and Progress Animation (15,000ms)
-    const startTime = Date.now();
-    const interval = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const pct = Math.min(100, Math.floor((elapsed / TOTAL_SPLASH_DURATION_MS) * 100));
-      setProgress(pct);
+    const timer = setTimeout(() => {
+      finishSplash();
+    }, TOTAL_SPLASH_DURATION_MS);
 
-      const rem = Math.max(0, Math.ceil((TOTAL_SPLASH_DURATION_MS - elapsed) / 1000));
-      setSecondsLeft(rem);
-
-      // Contextual informative status transitions
-      if (pct < 20) {
-        setStatusMessage(prev => prev.includes('قنوات') || prev.includes('أفلام') ? prev : 'جاري الاتصال بالسيرفر والتحقق من الاشتراك...');
-      } else if (pct >= 20 && pct < 50) {
-        setStatusMessage(prev => prev.includes('قنوات') || prev.includes('أفلام') ? prev : 'جاري تحميل وتجهيز جميع القنوات المباشرة...');
-      } else if (pct >= 50 && pct < 78) {
-        setStatusMessage(prev => prev.includes('أفلام') || prev.includes('مسلسلات') ? prev : 'جاري تحميل مكتبة الأفلام والسينما 4K...');
-      } else if (pct >= 78 && pct < 95) {
-        setStatusMessage(prev => prev.includes('مسلسلات') ? prev : 'جاري تحميل مكتبة المسلسلات والحلقات...');
-      } else if (pct >= 95) {
-        setStatusMessage('اكتمل تجهيز كافة الملفات بنجاح - دخول فوري!');
-      }
-
-      if (elapsed >= TOTAL_SPLASH_DURATION_MS) {
-        clearInterval(interval);
-        finishSplash();
-      }
-    }, 100);
-
-    // Keyboard / Remote shortcut to enter immediately
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Enter' || e.key === ' ' || e.keyCode === 13 || e.keyCode === 32 || e.key === 'Select') {
         e.preventDefault();
@@ -249,12 +203,11 @@ export default function SplashScreen({
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      clearInterval(interval);
+      clearTimeout(timer);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [activePlaylist, userId]);
 
-  // Ambient floating particles configuration
   const particles = [
     { id: 1, x: '20%', y: '30%', size: 4, dur: 4.2, delay: 0 },
     { id: 2, x: '75%', y: '25%', size: 6, dur: 5.1, delay: 0.5 },
@@ -262,6 +215,8 @@ export default function SplashScreen({
     { id: 4, x: '18%', y: '72%', size: 5, dur: 4.6, delay: 0.8 },
     { id: 5, x: '50%', y: '15%', size: 4, dur: 3.5, delay: 0.2 },
   ];
+
+  const skipText = language === 'ar' ? 'تخطي' : 'Skip';
 
   return (
     <motion.div
@@ -343,23 +298,13 @@ export default function SplashScreen({
         <div className="absolute inset-0 bg-radial-gradient from-transparent via-black/45 to-black/95 pointer-events-none" />
       </div>
 
-      {/* Top Header Badge */}
-      <div className="relative z-10 w-full flex items-center justify-between text-zinc-400">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 border border-white/10 backdrop-blur-md">
-          <Zap size={14} className="text-gold animate-pulse" />
-          <span className="text-[11px] font-mono font-bold text-gold">PRELOAD SYSTEM • 15 SECONDS</span>
-        </div>
+      {/* Top Spacer */}
+      <div className="w-full h-8" />
 
-        {/* Countdown Badge */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gold/15 border border-gold/40 backdrop-blur-md text-gold font-mono font-black text-xs">
-          <span>{secondsLeft}s</span>
-        </div>
-      </div>
-
-      {/* Center Showcase Area */}
+      {/* Center Showcase Area: Logo + App Name Only */}
       <div className="relative flex flex-col items-center justify-center z-10 max-w-lg w-full px-6 text-center my-auto">
         
-        {/* Animated Logo Card */}
+        {/* Animated 3D Logo Card */}
         <div className="relative mb-6 flex flex-col items-center">
           <motion.div
             animate={{
@@ -407,8 +352,8 @@ export default function SplashScreen({
               style={{ background: `radial-gradient(circle, ${theme.primary} 0%, transparent 70%)` }}
             />
 
-            <div className="relative w-28 h-28 sm:w-36 sm:h-36 rounded-3xl sm:rounded-[2rem] p-1.5 bg-gradient-to-br from-gold/90 via-white/20 to-gold/50 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden">
-              <div className="w-full h-full rounded-[18px] sm:rounded-[24px] overflow-hidden bg-black flex items-center justify-center relative">
+            <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-3xl sm:rounded-[2.2rem] p-1.5 bg-gradient-to-br from-gold/90 via-white/20 to-gold/50 shadow-[0_25px_60px_rgba(0,0,0,0.95)] overflow-hidden">
+              <div className="w-full h-full rounded-[18px] sm:rounded-[26px] overflow-hidden bg-black flex items-center justify-center relative">
                 <img 
                   src={logoImg}
                   onError={(e) => { e.currentTarget.src = './logo.jpg'; }} 
@@ -426,78 +371,28 @@ export default function SplashScreen({
           </motion.div>
         </div>
 
-        {/* Brand Title */}
+        {/* Brand Title Only */}
         <motion.div
           initial={{ y: 15, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.15 }}
-          className="text-center space-y-1.5"
+          className="text-center"
         >
-          <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-[0.22em] text-white drop-shadow-md">
+          <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-[0.25em] text-white drop-shadow-md">
             ACHOUR <span className="text-gold">PLAYER</span>
           </h1>
-          
-          <div className="flex items-center justify-center gap-2 text-[10px] sm:text-xs font-mono font-bold text-zinc-400 uppercase tracking-[0.25em]">
-            <span>IPTV</span>
-            <span className="text-gold">•</span>
-            <span>4K ULTRA HD</span>
-            <span className="text-gold">•</span>
-            <span>PRELOAD CACHE</span>
-          </div>
         </motion.div>
-
-        {/* Sleek Animated 15-Second Progress Bar */}
-        <div className="w-64 sm:w-80 h-2 bg-white/10 rounded-full mt-6 overflow-hidden p-[1px] border border-white/15 relative shadow-inner">
-          <motion.div
-            className="h-full rounded-full transition-all duration-100 ease-linear"
-            style={{
-              width: `${progress}%`,
-              background: 'linear-gradient(90deg, #D4AF37, #FFF, #D4AF37)',
-              boxShadow: '0 0 14px rgba(212, 175, 55, 0.9)'
-            }}
-          />
-        </div>
-
-        {/* Informative Multi-stage Preload Status */}
-        <div className="flex flex-col items-center justify-center w-full mt-3 space-y-1">
-          <div className="flex items-center gap-2 font-mono font-black text-xs text-gold">
-            <span>{progress}%</span>
-            <span>•</span>
-            <span>{secondsLeft} ثواني متبقية</span>
-          </div>
-          <span className="text-zinc-300 font-sans text-xs sm:text-sm font-bold truncate max-w-md drop-shadow">
-            {statusMessage}
-          </span>
-          <span className="text-[10px] text-zinc-500 font-medium">
-            يتم تجهيز القنوات والأفلام والمسلسلات في الذاكرة لفتحها فوراً بدون انتظار
-          </span>
-        </div>
       </div>
 
-      {/* Bottom Bar: Sound indicator + Skip Button */}
-      <div className="relative z-10 w-full flex items-center justify-between text-zinc-400">
-        <div className="flex items-center gap-2 text-[11px] font-mono font-bold bg-black/60 px-3 py-1.5 rounded-full border border-white/10 backdrop-blur-md">
-          {soundTrack === 'mute' ? (
-            <>
-              <VolumeX size={14} className="text-zinc-500" />
-              <span>الصوت معطل</span>
-            </>
-          ) : (
-            <>
-              <Volume2 size={14} className="text-gold" />
-              <span>نغمة البداية السينمائية (15 ثانية)</span>
-            </>
-          )}
-        </div>
-
-        {/* Instant Skip Button */}
+      {/* Bottom Bar: Skip Button Only */}
+      <div className="relative z-10 w-full flex items-center justify-end">
         <button
           onClick={finishSplash}
           data-tv-focusable="true"
-          className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/10 hover:bg-gold hover:text-black text-white font-bold text-xs transition-all border border-white/10 focus:ring-4 focus:ring-gold outline-none"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white/10 hover:bg-gold hover:text-black text-white font-bold text-xs sm:text-sm transition-all border border-white/15 focus:ring-4 focus:ring-gold outline-none shadow-xl backdrop-blur-md"
         >
-          <span>تخطي والبدء فوراً</span>
-          <ArrowRight size={14} className="rtl:rotate-180" />
+          <span>{skipText}</span>
+          <ArrowRight size={16} className="rtl:rotate-180" />
         </button>
       </div>
     </motion.div>

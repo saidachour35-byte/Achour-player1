@@ -263,19 +263,7 @@ export async function extractXtreamVODMetadata(
         });
       }
 
-      // If no explicit subtitles list, Xtream standard allows checking common subtitle extensions
-      if (subtitles.length === 0) {
-        // Standard Xtream provides srt subtitles endpoint
-        const standardSrtUrl = `/api/proxy/stream?url=${encodeURIComponent(`${cleanHost}/subtitles/${playlist.username}/${playlist.password}/${streamId}.srt`)}`;
-        subtitles.push({
-          id: 'xtream-auto-srt',
-          name: isRtl ? 'ترجمة السيرفر (Server SRT Subtitles)' : 'Server Subtitles (SRT)',
-          lang: 'auto',
-          url: standardSrtUrl,
-          source: 'xtream',
-          type: 'subtitle'
-        });
-      }
+      // Only include genuine subtitles returned by the stream or API
 
       // 2. Check audio tracks in info
       const rawAudio = info.audio || info.audio_streams || data.audio || [];

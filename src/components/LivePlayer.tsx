@@ -365,9 +365,6 @@ const MultiVideoSlot: React.FC<MultiVideoSlotProps> = ({
     videoTag.controls = false;
     videoTag.setAttribute('playsinline', 'true');
     videoTag.setAttribute('webkit-playsinline', 'true');
-    videoTag.setAttribute('crossorigin', 'anonymous');
-    videoTag.setAttribute('poster', 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
-    videoTag.poster = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
     videoTag.className = `${getAspectRatioClass(aspectRatio)} pointer-events-none`;
     videoTag.style.backgroundColor = '#000000';
     videoTag.style.opacity = '1';
@@ -437,6 +434,11 @@ const MultiVideoSlot: React.FC<MultiVideoSlotProps> = ({
     videoTag.oncanplay = markVideoReady;
     videoTag.onplaying = markVideoReady;
     videoTag.onplay = markVideoReady;
+    videoTag.ontimeupdate = () => {
+      if (videoTag.currentTime > 0 || videoTag.readyState >= 2) {
+        markVideoReady();
+      }
+    };
     videoTag.onpause = () => {
       if (isActive) onPlayingChange(false);
     };
@@ -490,33 +492,47 @@ const MultiVideoSlot: React.FC<MultiVideoSlotProps> = ({
           enableWorker: false, 
           lowLatencyMode: true, 
           backBufferLength: 0,
-          maxBufferLength: 8, 
-          maxMaxBufferLength: 16,
-          manifestLoadingMaxRetry: 8,
-          manifestLoadingRetryDelay: 500,
-          levelLoadingMaxRetry: 8,
-          levelLoadingRetryDelay: 500,
+          maxBufferLength: 3, 
+          maxMaxBufferLength: 6,
+          initialLiveManifestSize: 1,
+          liveSyncDurationCount: 1,
+          manifestLoadingMaxRetry: 4,
+          manifestLoadingRetryDelay: 200,
+          levelLoadingMaxRetry: 4,
+          levelLoadingRetryDelay: 200,
           startLevel: -1,
-          liveSyncDurationCount: 2,
-          capLevelToPlayerSize: true,
-          enableHardwareAcceleration: true
+          startFragPrefetch: true,
+          capLevelToPlayerSize: false,
+          adaptiveMaxWidth: 3840,
+          adaptiveMaxHeight: 2160,
+          adaptiveMaxBitrate: 100000000,
+          enableHardwareAcceleration: true,
+          highBufferWatchdogPeriod: 1.5,
+          maxBufferHole: 0.5,
+          reuseVpc: true
         };
       } else {
         hlsConfig = { 
           enableWorker: false, // CRITICAL: Better compatibility on Android TVs/Fire TV
           lowLatencyMode: true, 
           backBufferLength: 0,
-          maxBufferLength: 10,
-          maxMaxBufferLength: 20,
-          manifestLoadingMaxRetry: 10,
-          manifestLoadingRetryDelay: 500,
-          levelLoadingMaxRetry: 10,
-          levelLoadingRetryDelay: 500,
+          maxBufferLength: 3, 
+          maxMaxBufferLength: 6,
+          initialLiveManifestSize: 1,
+          liveSyncDurationCount: 1,
+          manifestLoadingMaxRetry: 4,
+          manifestLoadingRetryDelay: 200,
+          levelLoadingMaxRetry: 4,
+          levelLoadingRetryDelay: 200,
           startLevel: -1, // Use Auto ABR for all slots so video stream is selected, avoiding black screen
-          liveSyncDurationCount: 3,
+          startFragPrefetch: true,
           capLevelToPlayerSize: false, // Prevent capping to 0x0 before TV layout completes
           adaptiveMaxWidth: 3840,
+          adaptiveMaxHeight: 2160,
+          adaptiveMaxBitrate: 100000000,
           enableHardwareAcceleration: true, // Better 4K color handling
+          highBufferWatchdogPeriod: 1.5,
+          maxBufferHole: 0.5,
           reuseVpc: true, // Optimize decoder reuse on Fire TV
           nudgeMaxRetries: 10,
           maxFragLookUpTolerance: 0.5
@@ -679,7 +695,12 @@ const MultiVideoSlot: React.FC<MultiVideoSlotProps> = ({
       {multiViewMode !== 'none' && channel && (
         <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded bg-black/80 backdrop-blur-md text-[10px] font-mono font-bold flex items-center gap-1.5 border border-white/10 text-white">
           <span className={isActive ? 'w-2 h-2 rounded-full bg-gold animate-pulse' : 'w-2 h-2 rounded-full bg-zinc-600'} />
-          <span className="truncate max-w-[120px]">{channel.name}</span>
+          <span className="truncate max-w-[180px]">
+            {slotIdx === 0 ? `PLAYER 2 (المشغل الرئيسي) • ${channel.name}` :
+             slotIdx === 1 ? `PLAYER 1 • ${channel.name}` :
+             slotIdx === 2 ? `PLAYER 3 • ${channel.name}` :
+             `PLAYER 4 • ${channel.name}`}
+          </span>
         </div>
       )}
 
@@ -2692,7 +2713,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
         return;
       }
 
-      if (key === 'escape' || key === 'back' || e.keyCode === 27 || e.keyCode === 4) {
+      if (key === 'escape' || key === 'back' || key === 'backspace' || e.keyCode === 27 || e.keyCode === 4 || e.keyCode === 8 || e.keyCode === 10009 || e.keyCode === 461) {
         if (showAudioMenu || showSubMenu || showQualityMenu) {
           e.preventDefault();
           setShowAudioMenu(false);
@@ -2763,20 +2784,22 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
         e.preventDefault();
         switchChannelByOffset(-1);
       } else if (key === 'arrowright' || e.keyCode === 39 || e.keyCode === 22) {
-        // Arrow Right switches to NEXT channel in player/fullscreen
-        const isInteractingWithControls = !!document.activeElement?.closest('[data-tv-pane="player-controls"]');
-        const isInteractingWithSidebar = !!document.activeElement?.closest('[data-tv-pane="channels"]') || !!document.activeElement?.closest('[data-tv-pane="categories"]');
-        if (!isInteractingWithSidebar && (isFullscreen || !isInteractingWithControls || document.activeElement?.getAttribute('data-tv-pane') === 'player')) {
-          e.preventDefault();
-          switchChannelByOffset(1);
+        // Arrow Right ONLY switches channel when IN FULLSCREEN MODE and not interacting with controls or menus
+        if (isFullscreen && !showAudioMenu && !showSubMenu && !showQualityMenu && !movieDetailsModal) {
+          const isInteractingWithControls = !!document.activeElement?.closest('[data-tv-pane="player-controls"]');
+          if (!isInteractingWithControls || document.activeElement?.getAttribute('data-tv-pane') === 'player') {
+            e.preventDefault();
+            switchChannelByOffset(1);
+          }
         }
       } else if (key === 'arrowleft' || e.keyCode === 37 || e.keyCode === 21) {
-        // Arrow Left switches to PREVIOUS channel in player/fullscreen
-        const isInteractingWithControls = !!document.activeElement?.closest('[data-tv-pane="player-controls"]');
-        const isInteractingWithSidebar = !!document.activeElement?.closest('[data-tv-pane="channels"]') || !!document.activeElement?.closest('[data-tv-pane="categories"]');
-        if (!isInteractingWithSidebar && (isFullscreen || !isInteractingWithControls || document.activeElement?.getAttribute('data-tv-pane') === 'player')) {
-          e.preventDefault();
-          switchChannelByOffset(-1);
+        // Arrow Left ONLY switches channel when IN FULLSCREEN MODE and not interacting with controls or menus
+        if (isFullscreen && !showAudioMenu && !showSubMenu && !showQualityMenu && !movieDetailsModal) {
+          const isInteractingWithControls = !!document.activeElement?.closest('[data-tv-pane="player-controls"]');
+          if (!isInteractingWithControls || document.activeElement?.getAttribute('data-tv-pane') === 'player') {
+            e.preventDefault();
+            switchChannelByOffset(-1);
+          }
         }
       } else if (key === 'f') {
         e.preventDefault();
@@ -2950,40 +2973,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
           </button>
         </div>
 
-        <div className="absolute left-1/2 -translate-x-1/2 w-[40%] max-w-lg">
-          <div className="relative group flex items-center gap-2">
-            <div className="relative flex-1">
-              <Search size={14} className={`absolute ${isRtl ? 'right-4' : 'left-4'} top-1/2 -translate-y-1/2 text-gold/40 group-focus-within:text-gold transition-colors`} />
-              <input 
-                id="channel-search-input"
-                type="text"
-                placeholder={isRtl ? 'بحث باسم القناة أو الفيلم...' : 'Search for channel or movie...'}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className={`w-full bg-black/60 border border-gold/20 rounded-full py-2.5 ${isRtl ? 'pr-12 pl-6' : 'pl-12 pr-6'} text-xs text-white placeholder-zinc-500 outline-none focus:border-gold/60 focus:ring-1 focus:ring-gold/20 transition-all`}
-              />
-            </div>
-            <button
-              data-tv-focusable="true"
-              onClick={() => {
-                if (!('webkitSpeechRecognition' in window)) return;
-                const recognition = new (window as any).webkitSpeechRecognition();
-                recognition.lang = settings.language === 'ar' ? 'ar-SA' : 'en-US';
-                recognition.onstart = () => setIsVoiceActive(true);
-                recognition.onresult = (event: any) => {
-                  const text = event.results[0][0].transcript;
-                  setSearch(text);
-                  setIsVoiceActive(false);
-                };
-                recognition.onerror = () => setIsVoiceActive(false);
-                recognition.onend = () => setIsVoiceActive(false);
-                recognition.start();
-              }}
-              className={`p-2.5 rounded-full transition-all ${isVoiceActive ? 'bg-red-500 text-white animate-pulse' : 'bg-gold/20 text-gold hover:bg-gold/30'} focus:ring-4 focus:ring-gold outline-none`}
-            >
-              {isVoiceActive ? <MicOff size={18} /> : <Mic size={18} />}
-            </button>
-          </div>
+        <div className="absolute left-1/2 -translate-x-1/2 hidden">
         </div>
 
           <div className="flex items-center gap-2 bg-black/60 px-3.5 py-1.5 rounded-2xl border border-gold/30 shadow-md text-gold">
@@ -3033,24 +3023,6 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                   </div>
                 ) : (
                   <>
-                    {/* Special Categories */}
-                    <button
-                      data-tv-focusable="true"
-                      data-tv-pane="categories"
-                      tabIndex={0}
-                      onClick={() => setSelectedCategory('recent')}
-                      className={`w-full flex items-center justify-between px-3 py-2 text-[10px] sm:text-xs font-bold transition-all border-b border-white/5 focus:outline-none focus:ring-4 focus:ring-gold focus:scale-105 focus:z-20 focus:bg-gold/25 ${
-                        selectedCategory === 'recent'
-                          ? 'bg-gold/15 text-gold border-l-2 border-l-gold shadow-inner font-black'
-                          : 'text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <History size={12} className="text-gold" />
-                        <span className="truncate pr-1.5">{isRtl ? 'المشاهدة مؤخراً' : 'Recent'}</span>
-                      </div>
-                    </button>
-
                     <button
                       data-tv-focusable="true"
                       data-tv-pane="categories"
@@ -3103,7 +3075,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
               <span>{isRtl ? (mediaType === 'movie' ? 'قائمة الأفلام' : mediaType === 'series' ? 'قائمة المسلسلات' : 'قائمة القنوات') : 'Channels'}</span>
             </div>
             <span className="text-[10px] font-mono text-zinc-500 font-bold">
-              {loading && filteredChannels.length === 0 ? '...' : (selectedCategory === 'recent' ? getRecents().length : filteredChannels.length)}
+              {loading && filteredChannels.length === 0 ? '...' : filteredChannels.length}
             </span>
           </div>
 
@@ -3116,7 +3088,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
               </div>
             ) : (
             <VirtualizedChannelList
-              items={selectedCategory === 'recent' ? getRecents().map((r: any) => ({ ...r, stream_id: r.id })) : filteredChannels}
+              items={filteredChannels}
               selectedChannelId={selectedChannel?.stream_id}
               activePlayingMovieId={activePlayingMovie?.stream_id}
               favorites={favorites}
@@ -3198,60 +3170,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
         >
           {/* Top Bar inside Player (Only in non-fullscreen) */}
           {!isFullscreen && (
-            <div className="flex items-center justify-start gap-2 mb-2 shrink-0">
-              <div className="flex items-center gap-1.5 bg-black/60 p-1 rounded-full border border-white/10">
-                <button 
-                  data-tv-focusable="true" 
-                  data-tv-pane="player-controls"
-                  onClick={() => { setMultiViewMode('none'); setActiveSlot(0); }} 
-                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all focus:ring-2 focus:ring-gold ${multiViewMode === 'none' ? 'bg-gold text-black shadow-md' : 'text-zinc-400 hover:text-white'}`}
-                >
-                  {isRtl ? 'شاشة واحدة' : 'Single'}
-                </button>
-                <button 
-                  data-tv-focusable="true" 
-                  data-tv-pane="player-controls"
-                  onClick={() => {
-                    setMultiViewMode('dual');
-                    if (activeSlot > 1) setActiveSlot(0);
-                    setMultiChannels(prev => {
-                      const next = [...prev];
-                      if (!next[0] && (selectedChannel || activePlayingMovie)) next[0] = selectedChannel || activePlayingMovie;
-                      if (!next[1]) {
-                        const curId = next[0]?.stream_id;
-                        const idx = Math.max(0, filteredChannels.findIndex(c => c.stream_id === curId));
-                        next[1] = filteredChannels[(idx + 1) % filteredChannels.length] || null;
-                      }
-                      return next;
-                    });
-                  }}
-                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all focus:ring-2 focus:ring-gold ${multiViewMode === 'dual' ? 'bg-gold text-black shadow-md' : 'text-zinc-400 hover:text-white'}`}
-                >
-                  {isRtl ? 'شاشتين' : 'Dual'}
-                </button>
-                <button 
-                  data-tv-focusable="true" 
-                  data-tv-pane="player-controls"
-                  onClick={() => {
-                    setMultiViewMode('quad');
-                    setMultiChannels(prev => {
-                      const next = [...prev];
-                      if (!next[0] && (selectedChannel || activePlayingMovie)) next[0] = selectedChannel || activePlayingMovie;
-                      const curId = next[0]?.stream_id;
-                      const baseIdx = Math.max(0, filteredChannels.findIndex(c => c.stream_id === curId));
-                      for (let i = 1; i < 4; i++) {
-                        if (!next[i]) {
-                          next[i] = filteredChannels[(baseIdx + i) % filteredChannels.length] || null;
-                        }
-                      }
-                      return next;
-                    });
-                  }}
-                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase transition-all focus:ring-2 focus:ring-gold ${multiViewMode === 'quad' ? 'bg-gold text-black shadow-md' : 'text-zinc-400 hover:text-white'}`}
-                >
-                  {isRtl ? 'أربع شاشات' : 'Quad'}
-                </button>
-              </div>
+            <div className="flex items-center justify-start gap-2 mb-2 shrink-0 hidden">
             </div>
           )}
 
@@ -3600,7 +3519,64 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                   })()}
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                  <div className="flex items-center gap-1 bg-black/60 p-1 rounded-lg border border-white/10">
+                    <button 
+                      data-tv-focusable="true" 
+                      data-tv-pane="player-controls"
+                      onClick={() => { setMultiViewMode('none'); setActiveSlot(0); }} 
+                      className={`px-2 py-1 rounded text-[9px] font-black uppercase transition-all focus:ring-2 focus:ring-gold ${multiViewMode === 'none' ? 'bg-gold text-black shadow-md' : 'text-zinc-400 hover:text-white'}`}
+                      title={isRtl ? 'شاشة واحدة' : 'Single Screen'}
+                    >
+                      {isRtl ? 'شاشة' : '1'}
+                    </button>
+                    <button 
+                      data-tv-focusable="true" 
+                      data-tv-pane="player-controls"
+                      onClick={() => {
+                        setMultiViewMode('dual');
+                        if (activeSlot > 1) setActiveSlot(0);
+                        setMultiChannels(prev => {
+                          const next = [...prev];
+                          if (!next[0] && (selectedChannel || activePlayingMovie)) next[0] = selectedChannel || activePlayingMovie;
+                          if (!next[1]) {
+                            const curId = next[0]?.stream_id;
+                            const idx = Math.max(0, filteredChannels.findIndex(c => c.stream_id === curId));
+                            next[1] = filteredChannels[(idx + 1) % filteredChannels.length] || null;
+                          }
+                          return next;
+                        });
+                      }}
+                      className={`px-2 py-1 rounded text-[9px] font-black uppercase transition-all focus:ring-2 focus:ring-gold ${multiViewMode === 'dual' ? 'bg-gold text-black shadow-md' : 'text-zinc-400 hover:text-white'}`}
+                      title={isRtl ? 'شاشتين' : 'Dual Screen'}
+                    >
+                      {isRtl ? 'شاشتين' : '2'}
+                    </button>
+                    <button 
+                      data-tv-focusable="true" 
+                      data-tv-pane="player-controls"
+                      onClick={() => {
+                        setMultiViewMode('quad');
+                        setMultiChannels(prev => {
+                          const next = [...prev];
+                          if (!next[0] && (selectedChannel || activePlayingMovie)) next[0] = selectedChannel || activePlayingMovie;
+                          const curId = next[0]?.stream_id;
+                          const baseIdx = Math.max(0, filteredChannels.findIndex(c => c.stream_id === curId));
+                          for (let i = 1; i < 4; i++) {
+                            if (!next[i]) {
+                              next[i] = filteredChannels[(baseIdx + i) % filteredChannels.length] || null;
+                            }
+                          }
+                          return next;
+                        });
+                      }}
+                      className={`px-2 py-1 rounded text-[9px] font-black uppercase transition-all focus:ring-2 focus:ring-gold ${multiViewMode === 'quad' ? 'bg-gold text-black shadow-md' : 'text-zinc-400 hover:text-white'}`}
+                      title={isRtl ? 'أربع شاشات' : 'Quad Screen'}
+                    >
+                      {isRtl ? '4 شاشات' : '4'}
+                    </button>
+                  </div>
+
                   <button 
                     data-tv-focusable="true"
                     data-tv-pane="player-controls"
@@ -3647,7 +3623,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                     className="flex items-center gap-1 px-2 py-1 bg-red-950/40 border border-red-500/40 rounded-lg text-red-300 text-[9px] font-black hover:bg-red-900/60 transition-all shadow-sm focus:ring-2 focus:ring-red-500"
                   >
                     <div className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_6px_rgba(239,68,68,0.8)]" />
-                    {isRtl ? 'الصوت' : 'AUDIO'}
+                    {isRtl ? 'الصوت' : settings.language === 'de' ? 'AUDIO' : 'AUDIO'}
                   </button>
                   <button 
                     data-tv-focusable="true"
@@ -3656,7 +3632,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                     className="flex items-center gap-1 px-2 py-1 bg-emerald-950/40 border border-emerald-500/40 rounded-lg text-emerald-300 text-[9px] font-black hover:bg-emerald-900/60 transition-all shadow-sm focus:ring-2 focus:ring-emerald-500"
                   >
                     <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.8)]" />
-                    {isRtl ? 'الترجمة' : 'SUB'}
+                    {isRtl ? 'الترجمة' : settings.language === 'de' ? 'UNTERTITEL' : 'SUB'}
                   </button>
                   <button 
                     data-tv-focusable="true"
@@ -3665,7 +3641,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                     className="flex items-center gap-1 px-2 py-1 bg-gold/10 border border-gold/40 rounded-lg text-gold text-[9px] font-black hover:bg-gold/20 transition-all shadow-sm focus:ring-2 focus:ring-gold"
                   >
                     <div className="w-2 h-2 rounded-full bg-gold shadow-[0_0_6px_var(--theme-glow,rgba(229,160,13,0.8))]" />
-                    {selectedQuality.split(' ')[0] || (isRtl ? 'الجودة' : 'QUAL')}
+                    {selectedQuality.split(' ')[0] || (isRtl ? 'الجودة' : settings.language === 'de' ? 'QUALITÄT' : 'QUAL')}
                   </button>
                   <button 
                     data-tv-focusable="true"
@@ -3687,7 +3663,7 @@ export default function LivePlayer({ onBack, settings, onUpdateSettings, userId,
                     className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black transition-all shadow-sm border focus:ring-2 focus:ring-gold ${isMuted ? 'bg-red-500/20 border-red-500 text-red-300' : 'bg-white/5 border-white/10 text-zinc-200 hover:bg-white/10'}`}
                   >
                     {isMuted ? <VolumeX size={12} className="text-red-400" /> : <Volume2 size={12} className="text-gold" />}
-                    <span>{isMuted ? (isRtl ? 'كتم' : 'Mute') : `${Math.round(volume * 100)}%`}</span>
+                    <span>{isMuted ? (isRtl ? 'كتم' : settings.language === 'de' ? 'STUMM' : 'Mute') : `${Math.round(volume * 100)}%`}</span>
                   </button>
                 </div>
 

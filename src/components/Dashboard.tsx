@@ -441,41 +441,7 @@ export default function Dashboard({ userId, settings, onUpdateSettings, onTrigge
 
           {/* Part 3: Header Controls & Clock */}
           <div className={`flex-1 flex items-center gap-4 ${isRtl ? 'justify-start' : 'justify-end'}`}>
-            <div className="flex items-center gap-2 mr-2">
-              <button
-                data-tv-focusable="true"
-                onClick={() => setShowNotifications(true)}
-                className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-gold focus:ring-4 focus:ring-gold transition-all relative"
-              >
-                <Bell size={20} />
-                {settings.notifications && settings.notifications.filter(n => !n.read).length > 0 && (
-                  <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                )}
-              </button>
-              <button
-                data-tv-focusable="true"
-                onClick={() => setShowSpeedTest(true)}
-                className="p-2.5 rounded-xl bg-white/5 border border-white/10 text-zinc-400 hover:text-gold focus:ring-4 focus:ring-gold transition-all"
-              >
-                <Zap size={20} />
-              </button>
-              <button
-                data-tv-focusable="true"
-                onClick={() => {
-                  if (settings.kidsModeActive) {
-                    setShowKidsUnlock(true);
-                  } else {
-                    onUpdateSettings(prev => ({ ...prev, kidsModeActive: true }));
-                  }
-                }}
-                className={`p-2.5 rounded-xl border transition-all ${
-                  settings.kidsModeActive 
-                    ? 'bg-gold text-black border-gold shadow-lg shadow-gold/20' 
-                    : 'bg-white/5 border-white/10 text-zinc-400 hover:text-gold'
-                } focus:ring-4 focus:ring-gold`}
-              >
-                <Baby size={20} />
-              </button>
+            <div className="flex items-center gap-2 mr-2 hidden">
             </div>
 
             <div className={`flex flex-col ${isRtl ? 'items-start' : 'items-end'}`}>

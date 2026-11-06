@@ -14,7 +14,7 @@ import { parseTVKeyEvent, executeBackHandler, isTextInput } from './utils/tvNavi
 import { isFireTV } from './utils/platform';
 
 const DEFAULT_SETTINGS: AppSettings = {
-  language: 'ar',
+  language: 'en',
   hiddenCategories: [],
   hiddenLiveCategories: [],
   hiddenMovieCategories: [],
@@ -201,6 +201,7 @@ export default function App() {
             splashStyle={settings.splashStyle || 'floating_3d'}
             activePlaylist={activePlaylist}
             userId={userId}
+            language={settings.language || 'en'}
           />
         )}
       </AnimatePresence>

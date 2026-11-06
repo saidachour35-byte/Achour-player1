@@ -222,8 +222,18 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
       const hls = new Hls({
         enableWorker: false, // Critical for Fire TV and Android TV stability
         lowLatencyMode: false,
-        backBufferLength: 30
-      });
+        backBufferLength: 60,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        capLevelToPlayerSize: false, // Prevent capping 4K video resolution to player box size
+        adaptiveMaxWidth: 3840,
+        adaptiveMaxHeight: 2160,
+        adaptiveMaxBitrate: 100000000, // Up to 100 Mbps for native 4K UHD streams
+        enableHardwareAcceleration: true, // Hardware 4K GPU decoding
+        highBufferWatchdogPeriod: 2,
+        maxBufferHole: 0.5,
+        startLevel: -1 // Auto ABR (selects highest 4K quality level matching device bandwidth)
+      } as any);
 
       hlsRef.current = hls;
       hls.loadSource(activeStreamUrl);
@@ -651,10 +661,19 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
       }
 
       if (!showControls) {
-        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter', ' ', 'Select', 'Ok'].includes(key) || [23, 13, 19, 20, 21, 22].includes(keyCode)) {
-          setShowControls(true);
-          return;
+        setShowControls(true);
+        if (key === 'Enter' || key === ' ' || key === 'Select' || key === 'Ok' || keyCode === 23 || keyCode === 13 || keyCode === 32) {
+          e.preventDefault();
+          togglePlayPause();
+        } else if (key === 'ArrowDown' || keyCode === 20) {
+          e.preventDefault();
+          setTimeout(() => {
+            const playBtn = containerRef.current?.querySelector<HTMLElement>('.vod-bottom-play-btn') ||
+                            containerRef.current?.querySelector<HTMLElement>('.vod-bottom-btn');
+            playBtn?.focus();
+          }, 50);
         }
+        return;
       }
 
       if (activePopup !== 'none') {
@@ -732,15 +751,30 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
         if (currentActive.classList.contains('vod-top-back-btn')) {
           const centerPlayBtn = containerRef.current?.querySelector<HTMLElement>('.vod-center-play-btn');
           if (centerPlayBtn) centerPlayBtn.focus();
+          else {
+            const playBtn = containerRef.current?.querySelector<HTMLElement>('.vod-bottom-play-btn') ||
+                            containerRef.current?.querySelector<HTMLElement>('.vod-bottom-btn');
+            playBtn?.focus();
+          }
         } else if (currentActive.classList.contains('vod-center-play-btn')) {
           const seekbar = containerRef.current?.querySelector<HTMLElement>('.vod-seekbar-input');
           if (seekbar) seekbar.focus();
+          else {
+            const playBtn = containerRef.current?.querySelector<HTMLElement>('.vod-bottom-play-btn') ||
+                            containerRef.current?.querySelector<HTMLElement>('.vod-bottom-btn');
+            playBtn?.focus();
+          }
         } else if (currentActive.classList.contains('vod-seekbar-input')) {
-          const playPauseBtn = containerRef.current?.querySelector<HTMLElement>('.vod-bottom-play-btn');
-          if (playPauseBtn) playPauseBtn.focus();
+          const playBtn = containerRef.current?.querySelector<HTMLElement>('.vod-bottom-play-btn') ||
+                          containerRef.current?.querySelector<HTMLElement>('.vod-bottom-btn');
+          playBtn?.focus();
+        } else {
+          const playBtn = containerRef.current?.querySelector<HTMLElement>('.vod-bottom-play-btn') ||
+                          containerRef.current?.querySelector<HTMLElement>('.vod-bottom-btn');
+          playBtn?.focus();
         }
-      } else if (key === 'Enter' || key === ' ' || key === 'Select' || keyCode === 23 || keyCode === 13) {
-        if (currentActive && currentActive.click) {
+      } else if (key === 'Enter' || key === ' ' || key === 'Select' || key === 'Ok' || keyCode === 23 || keyCode === 13 || keyCode === 32) {
+        if (currentActive && currentActive.click && currentActive !== containerRef.current && currentActive !== document.body) {
           currentActive.click();
         } else {
           togglePlayPause();
@@ -799,16 +833,16 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`fixed inset-0 z-50 bg-black flex items-center justify-center overflow-hidden select-none font-sans text-white ${isRtl ? 'dir-rtl' : 'dir-ltr'}`}
+      className={`fixed inset-0 z-50 bg-[#000000] flex items-center justify-center overflow-hidden select-none font-sans text-white ${isRtl ? 'dir-rtl' : 'dir-ltr'}`}
       onMouseMove={resetControlsTimeout}
       onClick={resetControlsTimeout}
       tabIndex={-1}
     >
       {/* 1. Main Video Container */}
-      <div className="relative w-full h-full flex items-center justify-center bg-black">
+      <div className="relative w-full h-full flex items-center justify-center bg-[#000000]">
         <video
           ref={videoRef}
-          className={`transition-all duration-700 bg-black opacity-0 ${getAspectRatioClass()}`}
+          className={`transition-all duration-700 bg-[#000000] opacity-0 ${getAspectRatioClass()}`}
           playsInline
           autoPlay
           onPlay={(e) => {
@@ -913,82 +947,9 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
           </div>
         )}
 
-        {/* 5. Center Play/Pause Large Action Indicator */}
-        {showControls && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
-            <button
-              onClick={togglePlayPause}
-              data-tv-focusable="true"
-              tabIndex={0}
-              className="vod-center-play-btn pointer-events-auto w-20 h-20 rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md text-gold border border-gold/40 flex items-center justify-center transition-all transform hover:scale-110 active:scale-95 shadow-2xl focus:ring-4 focus:ring-gold"
-            >
-              {isPlaying ? (
-                <Pause className="w-10 h-10 fill-current" />
-              ) : (
-                <Play className="w-10 h-10 fill-current mr-1" />
-              )}
-            </button>
-          </div>
-        )}
+        {/* 5. Center Play/Pause Large Action Indicator Removed */}
 
-        {/* 6. Player Top Header Control Bar */}
-        <div
-          className={`absolute top-0 inset-x-0 z-30 p-4 bg-gradient-to-b from-black/90 via-black/50 to-transparent transition-opacity duration-300 flex items-center justify-between ${
-            showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-          }`}
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={onClose}
-              data-tv-focusable="true"
-              tabIndex={0}
-              className="vod-top-back-btn p-2.5 rounded-xl bg-gray-900/80 hover:bg-gray-800 text-gray-200 border border-gray-700/60 focus:ring-2 focus:ring-gold transition-colors flex items-center gap-2"
-              title="رجوع"
-            >
-              <ChevronRight className="w-5 h-5 text-gold" />
-              <span className="text-sm font-semibold hidden sm:inline">إغلاق</span>
-            </button>
 
-            <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-bold text-white truncate max-w-md sm:max-w-xl">
-                {displayTitle}
-              </h2>
-              {realResolution && (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-gold/20 text-gold border border-gold/30">
-                    {realResolution}
-                  </span>
-                  {activeVod.container_extension && (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-gray-800 text-gray-300 border border-gray-700 uppercase">
-                      {activeVod.container_extension}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Top Actions */}
-          <div className="flex items-center gap-2">
-            {onToggleFavorite && (
-              <button
-                onClick={() => onToggleFavorite(activeVod)}
-                data-tv-focusable="true"
-                tabIndex={0}
-                className={`p-2.5 rounded-xl border transition-colors focus:ring-2 focus:ring-gold ${
-                  isFavorite
-                    ? 'bg-gold/20 border-gold/50 text-gold'
-                    : 'bg-gray-900/80 border-gray-700/60 text-gray-300 hover:bg-gray-800'
-                }`}
-                title={isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
-              >
-                <Sparkles className="w-5 h-5" />
-              </button>
-            )}
-
-            {/* Episode button moved to bottom */}
-          </div>
-        </div>
 
         {/* 7. Player Bottom Footer Controls Bar */}
         <div
@@ -996,6 +957,41 @@ export const VodPlayerModal: React.FC<VodPlayerModalProps> = ({
             showControls ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
         >
+          {/* Title and Quality info moved to the bottom bar */}
+          <div className="flex items-center justify-between gap-3 px-1 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-white truncate max-w-md sm:max-w-xl">
+                {displayTitle}
+              </h2>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-gold/20 text-gold border border-gold/30">
+                  {realResolution || (hlsQualities.length > 0 ? hlsQualities[selectedQuality === -1 ? 0 : selectedQuality]?.name : 'HD')}
+                </span>
+                {activeVod.container_extension && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-gray-800 text-gray-300 border border-gray-700 uppercase">
+                    {activeVod.container_extension}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {onToggleFavorite && (
+              <button
+                onClick={() => onToggleFavorite(activeVod)}
+                data-tv-focusable="true"
+                tabIndex={0}
+                className={`p-2 rounded-xl border transition-colors focus:ring-2 focus:ring-gold ${
+                  isFavorite
+                    ? 'bg-gold/20 border-gold/50 text-gold'
+                    : 'bg-gray-900/80 border-gray-700/60 text-gray-300 hover:bg-gray-800'
+                }`}
+                title={isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+              >
+                <Sparkles className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
           <div className="space-y-1">
             <div className="flex items-center justify-between text-xs font-mono text-gray-300 px-1">
               <span>{formatTime(currentTime)}</span>
